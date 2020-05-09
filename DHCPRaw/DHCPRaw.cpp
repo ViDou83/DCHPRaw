@@ -633,7 +633,7 @@ DWORD DHCPRawClient::build_dhpc_request()
 				iNbrOpt++;
 
 			iNbrOpt += 2;
-			
+			//BLA BLA
 			DhcpPacket->m_iRetry = 0;
 
 			break;
