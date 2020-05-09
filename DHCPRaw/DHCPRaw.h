@@ -53,7 +53,7 @@ using namespace std;
 
 extern HANDLE g_hSocketWaitEvent;
 extern CRITICAL_SECTION g_CS[DHCP_REPLY];
-
+extern bool g_DhcpReceiverAlone;
 /*
 https://tools.ietf.org/html/rfc2131#section-5
 RFC 2131          Dynamic Host Configuration Protocol         March 1997
@@ -149,6 +149,7 @@ USHORT build_option_81(char* FQDN, PDHCP_OPT DhcpOpt);
 USHORT build_option_61(PUCHAR MacAddr, PDHCP_OPT DhcpOpt);
 bool IsIPv4AddrPlumbebOnAdapter(int IfIndex, char* IPv4);
 DWORD MyEcho(char* IpAddr);
+LARGE_INTEGER UnixTimeToFileTime(time_t t);
 
 namespace DHCPRaw 
 {
@@ -163,7 +164,7 @@ namespace DHCPRaw
 		/////////////////////
 		DHCPRawLease()
 		{
-			//
+			;
 		}
 		DHCPRawLease(pDHCP_PACKET pDhcpAck, int ClientId);
 		/////////////////////
@@ -177,9 +178,9 @@ namespace DHCPRaw
 		/////////////////////
 		/// attributes
 		/////////////////////			
-		pDHCP_LEASE m_pDhcpLease;
-		char m_LocalAddrIp[INET_ADDRSTRLEN];
-		char m_ServerAddrIp[INET_ADDRSTRLEN];
+		pDHCP_LEASE m_pDhcpLease = NULL;
+		char m_LocalAddrIp[INET_ADDRSTRLEN] = { 0 };
+		char m_ServerAddrIp[INET_ADDRSTRLEN] = { 0 };
 
 		/////////////////////
 		/// Methods
@@ -190,24 +191,24 @@ namespace DHCPRaw
 	};
 
 	//DHCPRawMessage
-	class DHCPRawMessage
+	class DHCPRawPacket
 	{
 		public:
 			/////////////////////
 			/// Constructor
 			/////////////////////
-			DHCPRawMessage()
+			DHCPRawPacket()
 			{
 				//
 			}
-			DHCPRawMessage(BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN]);
-			DHCPRawMessage(BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN], bool IsRealyOn, char* RelayAddr, char* SrvAddr);
+			DHCPRawPacket(BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN]);
+			DHCPRawPacket(BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN], bool IsRealyOn, char* RelayAddr, char* SrvAddr);
 			/////////////////////
 			/// Methods
 			/////////////////////
 			void print();
-			//
 			HANDLE Run();
+			void destroy();
 			//
 			pIPv4_HDR get_IPv4_HDR();
 			pUDPv4_HDR get_UDPv4_HDR();
@@ -226,6 +227,7 @@ namespace DHCPRaw
 			/////////////////////
 			// Create pIPV4 and UDPv4 hearder
 			DWORD SetDhcpMessage(BYTE dhcp_opcode, BYTE dhcp_flags, ULONG dhcp_gip, BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN]);
+
 
 	};
 
@@ -272,7 +274,8 @@ namespace DHCPRaw
 			char*	m_SrvAddr = NULL;
 			char*	m_ClientNamePrefix = NULL;
 
-			DHCPRawMessage m_DhcpRawMsg;
+
+			DHCPRawPacket m_DhcpRawMsg;
 			DHCPRawLease m_DhcpRawLease;
 			//pDHCP_PACKET is the struct enqueued to the hashtable... DHCP Sender/receiver will then consume it.
 			pDHCP_PACKET m_pDhcpRequest = NULL;
@@ -287,7 +290,6 @@ namespace DHCPRaw
 			//Set MAC from getting underlying MAC address using IP HLP API
 			DWORD setMAC();
 			//
-			int getClientNumber();
 			/* DHCP Client Thread:
 				* Wait DHCP Receiver to be readay 	
 				* Sent DHCP Discover (pass it to relay by inserted it to the Queue if needed)
@@ -299,15 +301,15 @@ namespace DHCPRaw
 			DWORD SendDhcpRequest();
 			DWORD SetDHCPRequestCompletionEvent(int bucket, pDHCP_PACKET Reply);
 			DWORD SetStateTransition(int NewState);
-			DWORD build_dhpc_discover();
-			//
 			DWORD build_dhpc_request();
 			//
+			int		getClientNumber();
 
 			//Static method needed to run thread... Need to explore C++11 threading support
 			static DWORD WINAPI ThreadEntryPoint(LPVOID lpParameter)
 			{
 				DHCPRawClient* Client = (DHCPRawClient*)lpParameter;
+				//DWORD ret = Client->m_IsReceiver == TRUE ? Client->DhcpReceiver() : Client->DhcpClient();
 				if (Client->m_IsReceiver)
 				{
 					Client->DhcpReceiver();

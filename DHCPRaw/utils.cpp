@@ -519,3 +519,10 @@ DWORD GetAdaptersInfo()
 
 	return EXIT_SUCCESS;
 }
+
+LARGE_INTEGER UnixTimeToFileTime(time_t time)
+{
+	LARGE_INTEGER n;
+	n.QuadPart = (time + 11644473600ULL) * 10000000ULL;
+	return n;
+}

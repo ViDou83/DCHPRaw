@@ -14,64 +14,63 @@ namespace DHCPRaw
 /////////////////////////////
 //DHCPRawMessage Class Functions
 /////////////////////////////
-DWORD InsertLock(int bucket, pDHCP_PACKET& m_pDhcpPacket)
+DWORD InsertLock(int bucket, pDHCP_PACKET& pDhcpPacket)
 {
-	DEBUG_PRINT("--> InsertLock in Q=%d Qsize=%d Xid=%.8X\n",bucket, DHCPOutstandingMsgQ[bucket].size(), ntohl((m_pDhcpPacket->m_pDhcpMsg->dhcp_xid)));
+	DEBUG_PRINT("-->InsertLock in Q=%d Qsize=%d Xid=%.8X\n",bucket, DHCPOutstandingMsgQ[bucket].size(), ntohl((pDhcpPacket->m_pDhcpMsg->dhcp_xid)));
 
 	EnterCriticalSection(&g_CS[bucket]);
-	DHCPOutstandingMsgQ[bucket].insert(m_pDhcpPacket);
+	DHCPOutstandingMsgQ[bucket].insert(pDhcpPacket);
 	LeaveCriticalSection(&g_CS[bucket]);
 
-	DEBUG_PRINT("<-- InsertLock in Q=%d Qsize=%d Xid=%.8X\n",bucket, DHCPOutstandingMsgQ[bucket].size(), ntohl((m_pDhcpPacket->m_pDhcpMsg->dhcp_xid)));
+	DEBUG_PRINT("<--InsertLock in Q=%d Qsize=%d Xid=%.8X\n",bucket, DHCPOutstandingMsgQ[bucket].size(), ntohl((pDhcpPacket->m_pDhcpMsg->dhcp_xid)));
 
 	return EXIT_SUCCESS;
 }
 
-DWORD RemoveLock(int bucket, pDHCP_PACKET& m_pDhcpPacket)
+DWORD RemoveLock(int bucket, pDHCP_PACKET& pDhcpPacket)
 {
-	DEBUG_PRINT("--> RemoveLock Q=%d Qsize=%d Xid=%.8X\n",bucket, DHCPOutstandingMsgQ[bucket].size(), ntohl((m_pDhcpPacket->m_pDhcpMsg->dhcp_xid)));
+	DEBUG_PRINT("-->RemoveLock Q=%d Qsize=%d Xid=%.8X\n",bucket, DHCPOutstandingMsgQ[bucket].size(), ntohl((pDhcpPacket->m_pDhcpMsg->dhcp_xid)));
 
 	EnterCriticalSection(&g_CS[bucket]);
-	DHCPOutstandingMsgQ[bucket].erase(m_pDhcpPacket);
+	DHCPOutstandingMsgQ[bucket].erase(pDhcpPacket);
 	LeaveCriticalSection(&g_CS[bucket]);
 
-	DEBUG_PRINT("<-- RemoveLock Q=%d Qsize=%d Xid=%.8X\n",bucket, DHCPOutstandingMsgQ[bucket].size(), ntohl((m_pDhcpPacket->m_pDhcpMsg->dhcp_xid)));
+	DEBUG_PRINT("<--RemoveLock Q=%d Qsize=%d Xid=%.8X\n",bucket, DHCPOutstandingMsgQ[bucket].size(), ntohl((pDhcpPacket->m_pDhcpMsg->dhcp_xid)));
 
 	return EXIT_SUCCESS;
 }
 
-pDHCP_PACKET FindElement(int bucket, pDHCP_PACKET& m_pDhcpRequest)
+pDHCP_PACKET FindElement(int bucket, pDHCP_PACKET& pDhcpPacket)
 {
-	DEBUG_PRINT("--> FindElement in Q=%d Qsize=%d Xid=%.8X\n",bucket, DHCPOutstandingMsgQ[bucket].size(), ntohl(m_pDhcpRequest->m_pDhcpMsg->dhcp_xid));
+	DEBUG_PRINT("-->FindElement in Q=%d Qsize=%d Xid=%.8X\n",bucket,DHCPOutstandingMsgQ[bucket].size(),ntohl(pDhcpPacket->m_pDhcpMsg->dhcp_xid));
 
 	EnterCriticalSection(&g_CS[bucket]);
-	DhcpMsgQ::const_iterator DhcpPacket = DHCPOutstandingMsgQ[bucket].find(m_pDhcpRequest);
+	DhcpMsgQ::const_iterator DhcpPacket = DHCPOutstandingMsgQ[bucket].find(pDhcpPacket);
 	LeaveCriticalSection(&g_CS[bucket]);
 
-	DEBUG_PRINT("<-- FindElement in Q=%d Qsize=%d Xid=%.8X\n",bucket, DHCPOutstandingMsgQ[bucket].size(), ntohl((ULONG)(*DhcpPacket)->m_pDhcpMsg->dhcp_xid));
+	//DEBUG_PRINT("<--FindElement in Q=%d Qsize=%d Xid=%.8X\n",bucket,DHCPOutstandingMsgQ[bucket].size(),ntohl(DhcpPacket->m_pDhcpMsg->dhcp_xid));
 
 	return (pDHCP_PACKET)*DhcpPacket;
 }
 
-pDHCP_PACKET ExtractElement(int bucket, pDHCP_PACKET& m_pDhcpPacket)
+pDHCP_PACKET ExtractElement(int bucket, pDHCP_PACKET& pDhcpPacket)
 {
-	DEBUG_PRINT("--> ExtractElement in Q=%dQsize=%d Xid=%.8X\n",bucket, DHCPOutstandingMsgQ[bucket].size(), ntohl(m_pDhcpPacket->m_pDhcpMsg->dhcp_xid));
+	DEBUG_PRINT("-->ExtractElement in Q=%d Qsize=%d Xid=%.8X\n",bucket,DHCPOutstandingMsgQ[bucket].size(),ntohl(pDhcpPacket->m_pDhcpMsg->dhcp_xid));
 
 	EnterCriticalSection(&g_CS[bucket]);
-	DhcpMsgQ::node_type node = DHCPOutstandingMsgQ[bucket].extract(m_pDhcpPacket);
+	DhcpMsgQ::node_type node = DHCPOutstandingMsgQ[bucket].extract(pDhcpPacket);
+	pDHCP_PACKET DhcpPacket = node.value();
 	LeaveCriticalSection(&g_CS[bucket]);
 
-	pDHCP_PACKET DhcpPacket = node.value();
-
-	DEBUG_PRINT("<-- ExtractElement in Q=%d Qsize=%d Xid=%.8X\n",bucket, DHCPOutstandingMsgQ[bucket].size(), ntohl(DhcpPacket->m_pDhcpMsg->dhcp_xid));
+	DEBUG_PRINT("<--ExtractElement in Q=%d Qsize=%d Xid=%.8X\n",bucket, DHCPOutstandingMsgQ[bucket].size(), ntohl(DhcpPacket->m_pDhcpMsg->dhcp_xid));
 
 	return DhcpPacket;
 }
 
 /////////////////////////////
-//DHCPRawMessage Class Functions
+//DHCPRawPacket Class Functions
 /////////////////////////////
-DHCPRawMessage::DHCPRawMessage(BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN])
+DHCPRawPacket::DHCPRawPacket(BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN])
 {
 	/* Init DHCP Message */
 	BYTE dhcp_flags =  DHCP_UNICAST_FLAG << 7;
@@ -84,7 +83,7 @@ DHCPRawMessage::DHCPRawMessage(BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN])
 	m_pUDPv4_HDR = BuildUDPv4Hdr(UdpSrcPort, DHCP_UDP_SPORT, 0);
 }
 
-DHCPRawMessage::DHCPRawMessage(BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN], bool IsRealyOn, char* RelayAddr,char* SrvAddr)
+DHCPRawPacket::DHCPRawPacket(BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN], bool IsRealyOn, char* RelayAddr,char* SrvAddr)
 {
 	/* Init DHCP Message */
 	BYTE dhcp_flags = IsRealyOn == TRUE ? DHCP_BROADCAST_FLAG << 7 : DHCP_UNICAST_FLAG << 7;
@@ -99,22 +98,22 @@ DHCPRawMessage::DHCPRawMessage(BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN], bool IsRealyO
 	m_pUDPv4_HDR = BuildUDPv4Hdr(UdpSrcPort, DHCP_UDP_SPORT, 0);
 }
 
-pIPv4_HDR DHCPRawMessage::get_IPv4_HDR()
+pIPv4_HDR DHCPRawPacket::get_IPv4_HDR()
 {
 	return m_pIPv4_HDR;
 }
 
-pUDPv4_HDR DHCPRawMessage::get_UDPv4_HDR()
+pUDPv4_HDR DHCPRawPacket::get_UDPv4_HDR()
 {
 	return m_pUDPv4_HDR;
 }
 
-pDHCPv4_HDR DHCPRawMessage::get_DhcpMsg()
+pDHCPv4_HDR DHCPRawPacket::get_DhcpMsg()
 {
 	return m_pDhcpMsg;
 }
 
-DWORD DHCPRawMessage::SetDhcpMessage(BYTE dhcp_opcode, BYTE dhcp_flags, ULONG dhcp_gip, BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN])
+DWORD DHCPRawPacket::SetDhcpMessage(BYTE dhcp_opcode, BYTE dhcp_flags, ULONG dhcp_gip, BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN])
 {
 	m_pDhcpMsg = (pDHCPv4_HDR)malloc(sizeof(DHCPv4_HDR));
 
@@ -155,13 +154,20 @@ DWORD DHCPRawMessage::SetDhcpMessage(BYTE dhcp_opcode, BYTE dhcp_flags, ULONG dh
 	return EXIT_SUCCESS;
 }
 
-HANDLE DHCPRawMessage::Run()
+void DHCPRawPacket::destroy()
+{
+	free(this->m_pIPv4_HDR);
+	free(this->m_pUDPv4_HDR);
+	free(this->m_pDhcpMsg);
+}
+
+HANDLE DHCPRawPacket::Run()
 {
 	HANDLE handle = NULL;
 	return handle;
 }
 
-void DHCPRawMessage::print()
+void DHCPRawPacket::print()
 {
 	char dhcp_cip[INET_ADDRSTRLEN];
 	char dhcp_yip[INET_ADDRSTRLEN];
@@ -193,7 +199,86 @@ void DHCPRawMessage::print()
 }
 
 
+/////////////////////////////
+//DHCPRawLease Class Functions
+/////////////////////////////
 
+DHCPRawLease::DHCPRawLease(pDHCP_PACKET pDhcpAck, int ClientId)
+{
+	CreateLease(pDhcpAck, ClientId);
+}
+
+void DHCPRawLease::CreateLease(pDHCP_PACKET pDhcpAck, int ClientId)
+{
+	DEBUG_PRINT("--> DHCPRawLease::DhcpClient() CLient:%d\n", ClientId);
+
+
+	m_pDhcpLease = (pDHCP_LEASE)malloc(sizeof(DHCP_LEASE));
+	m_pDhcpLease->m_iClientID = ClientId;
+	m_pDhcpLease->m_pDhcpPacketAck = pDhcpAck;
+	m_pDhcpLease->m_T1 = 0;
+	m_pDhcpLease->m_T2 = 0;
+
+	ULONG seconds = 0;
+	ULONG t1 = 0;
+	ULONG t2 = 0;
+
+	//Getting IP address
+	inet_ntop(AF_INET, &(m_pDhcpLease->m_pDhcpPacketAck->m_pDhcpMsg->dhcp_yip), m_LocalAddrIp, INET_ADDRSTRLEN);
+
+
+	//Compute T1 & T2
+	for (int i = 0; i < m_pDhcpLease->m_pDhcpPacketAck->m_iNbrOpt; i++)
+	{
+		if (m_pDhcpLease->m_pDhcpPacketAck->m_ppDhcpOpt[i]->OptionType == DHCP_LEASETIME)
+		{
+			for (int j = 0; j < m_pDhcpLease->m_pDhcpPacketAck->m_ppDhcpOpt[i]->OptionLength; j++)
+				seconds = (seconds * 0x100) + m_pDhcpLease->m_pDhcpPacketAck->m_ppDhcpOpt[i]->OptionValue[j];
+
+			m_pDhcpLease->m_T2 = m_pDhcpLease->m_pDhcpPacketAck->m_ltime;
+			m_pDhcpLease->m_T1 = m_pDhcpLease->m_pDhcpPacketAck->m_ltime;
+
+			t1 = seconds / 2;
+			m_pDhcpLease->m_T1 += t1;
+
+			t2 = seconds * 1000 / 875;
+			m_pDhcpLease->m_T2 += t2;
+		}
+
+		if (m_pDhcpLease->m_pDhcpPacketAck->m_ppDhcpOpt[i]->OptionType == DHCP_SERVIDENT)
+		{
+			inet_ntop(AF_INET, &(m_pDhcpLease->m_pDhcpPacketAck->m_ppDhcpOpt[i]->OptionValue[0]), m_ServerAddrIp, INET_ADDRSTRLEN);
+		}
+	}
+
+	DEBUG_PRINT("<-- DHCPRawLease::DhcpClient() CLient:%d\n", ClientId);
+}
+
+void DHCPRawLease::DeleteLease()
+{
+
+}
+
+pDHCP_LEASE DHCPRawLease::GetLease()
+{
+	return m_pDhcpLease;
+}
+
+void DHCPRawLease::print()
+{
+	char dhcp_yip[INET_ADDRSTRLEN];
+	inet_ntop(AF_INET, &(m_pDhcpLease->m_pDhcpPacketAck->m_pDhcpMsg->dhcp_yip), dhcp_yip, INET_ADDRSTRLEN);
+
+
+	printf("LeaseGranted:\n");
+	printf("\tClientID:%d\n\tMyIP:%s\n\tServerIP:%s\n", m_pDhcpLease->m_iClientID, m_LocalAddrIp, m_ServerAddrIp);
+	char* t0 = ctime(&m_pDhcpLease->m_pDhcpPacketAck->m_ltime);
+	printf("\tLeaseObtened:%s", t0);
+	char* t1 = ctime(&m_pDhcpLease->m_T1);
+	printf("\tT1:%s", t1);
+	char* t2 = ctime(&m_pDhcpLease->m_T2);
+	printf("\tT2:%s", t2);
+}
 /////////////////////////////
 //DHCPCLient Class Functions
 /////////////////////////////
@@ -212,8 +297,7 @@ DHCPRawClient::DHCPRawClient(int number, int ifindex,char* ClientPrefixName)
 	// setMAc from adapter with ifIndex = m_IfIndex;
 	if (setMAC() == EXIT_FAILURE) { cout << "Cannot get MAC address from ifIndex:" << m_IfIndex << endl; }
 	//
-	m_DhcpRawMsg = DHCPRawMessage(m_MAC);
-
+	m_DhcpRawMsg = DHCPRawPacket(m_MAC);
 
 }
 
@@ -231,7 +315,7 @@ DHCPRawClient::DHCPRawClient(int number, int ifindex, char* ClientPrefixName, bo
 	// setMAc from adapter with ifIndex = m_IfIndex;
 	if (setMAC() == EXIT_FAILURE) { cout << "Cannot get MAC address from ifIndex:" << m_IfIndex << endl; }
 	//
-	m_DhcpRawMsg = DHCPRawMessage(m_MAC,isRelayOn,RelayAddr,SrvAddr);
+	m_DhcpRawMsg = DHCPRawPacket(m_MAC,isRelayOn,RelayAddr,SrvAddr);
 	m_gRelayMode = isRelayOn;
 	m_RelayAddr = RelayAddr;
 	m_SrvAddr = SrvAddr;
@@ -319,11 +403,16 @@ DWORD DHCPRawClient::DhcpClient()
 	/* First wait on that the DHCP receiver*/
 	DWORD dwWaitResultOnSocketEvent;
 	DWORD dwWaitOnCompletionRequest;
-	
+
+	pDHCP_PACKET pDhcpReply = NULL;
+	pDHCP_PACKET pDhcpAck = NULL;
+
 	time_t st_ltime = 0;
 	time_t m_pDhcpRequest_ltime = 0;
 
-	pDHCP_PACKET pDhcpReply = NULL;
+	HANDLE hTimer = NULL;
+	LARGE_INTEGER liDueTime;
+	FILETIME ft;
 
 	/* Wait the DHCP Receiver beoin*/
 	dwWaitResultOnSocketEvent = WaitForSingleObject(
@@ -348,11 +437,7 @@ DWORD DHCPRawClient::DhcpClient()
 	}
 
 
-	pDHCP_PACKET pDhcpAck = NULL;
-	HANDLE hTimer = NULL;
-	LARGE_INTEGER liDueTime;
 
-	liDueTime.QuadPart = -600000000LL;
 
 	// Create an unnamed waitable timer.
 	hTimer = CreateWaitableTimer(NULL, TRUE, NULL);
@@ -380,9 +465,13 @@ DWORD DHCPRawClient::DhcpClient()
 			case StateTransition::Bound:
 				//CreateLease
 				m_DhcpRawLease = DHCPRawLease(m_pDhcpAck, m_ClientNumber);
-				//m_pDhcpLease = m_DhcpLease.GetLease();
-				Sleep(5 * m_ClientNumber);
+				m_pDhcpLease = m_DhcpRawLease.GetLease();
+				//Sleep(5 * m_ClientNumber);
 				m_DhcpRawLease.print();
+				
+				liDueTime = UnixTimeToFileTime(m_pDhcpLease->m_T1);
+
+				//m_pDhcpLease->m_T1 
 				//Wait T1 to Expire
 				if (!SetWaitableTimer(hTimer, &liDueTime, 0, NULL, NULL, 0))
 				{
@@ -402,7 +491,11 @@ DWORD DHCPRawClient::DhcpClient()
 
 				break;
 			case StateTransition::Renewing:
-				//Wait T2 to Expire
+
+				liDueTime = UnixTimeToFileTime(m_pDhcpLease->m_T2);
+
+				//m_pDhcpLease->m_T1 
+				//Wait T1 to Expire
 				if (!SetWaitableTimer(hTimer, &liDueTime, 0, NULL, NULL, 0))
 				{
 					printf("SetWaitableTimer failed (%d)\n", GetLastError());
@@ -410,7 +503,6 @@ DWORD DHCPRawClient::DhcpClient()
 				}
 
 				printf("Waiting for T2 expired...\n");
-
 				// Wait for the timer.
 				if (WaitForSingleObject(hTimer, INFINITE) != WAIT_OBJECT_0)
 					printf("WaitForSingleObject failed (%d)\n", GetLastError());
@@ -451,24 +543,38 @@ DWORD DHCPRawClient::DhcpClient()
 				switch ((int)pDhcpReply->m_ppDhcpOpt[0]->OptionValue[0])
 				{
 					case DHCP_MSGOFFER:
-						SetStateTransition(m_StateTransition + 1);
-						m_pDhcpOffer = pDhcpReply;
+						if (this->m_pDhcpOffer == NULL)
+						{
+							this->m_pDhcpOffer = pDhcpReply;
+							SetStateTransition(m_StateTransition + 1);
+						}
+						else if (this->m_pDhcpOffer->m_pDhcpMsg->dhcp_xid == pDhcpReply->m_pDhcpMsg->dhcp_xid)  //Duplicate
+							free(pDhcpReply);
+						
 						break;
 
 					case DHCP_MSGACK:
-						if ( m_StateTransition != StateTransition::Renewing)
-							SetStateTransition(StateTransition::Bound);
-						else
-							SetStateTransition(StateTransition::Rebinding);			
+	
 
-						m_pDhcpAck = pDhcpReply;
+						if (this->m_pDhcpAck == NULL || m_StateTransition != StateTransition::Bound)
+						{
+							if (m_StateTransition != StateTransition::Renewing)
+								SetStateTransition(StateTransition::Bound);
+							else
+								SetStateTransition(StateTransition::Rebinding);
+							//Store new ACK
+							this->m_pDhcpAck = pDhcpReply;
+						}
+						else if (this->m_pDhcpAck->m_pDhcpMsg->dhcp_xid == pDhcpReply->m_pDhcpMsg->dhcp_xid) //Duplicate
+							free(pDhcpReply);
+			
 						break;
 
 					case DHCP_MSGNACK:
 						SetStateTransition(StateTransition::Init);
 						break;
 				}
-
+				this->m_pDhcpRequest = ExtractElement(DHCP_REQUEST - 1, pDhcpReply);
 				ResetEvent(this->m_pDhcpRequest->hCompletionEvent);
 
 				break;
@@ -483,7 +589,7 @@ DWORD DHCPRawClient::DhcpClient()
 				printf("DHCPRawClient::DhcpClient(): Wait error (%d)\n", GetLastError());
 				return EXIT_FAILURE;
 		}
-	}while (true);//LeaseNotGranter or Retry > 3 
+	}while (m_pDhcpRequest->m_iRetry < 4);//LeaseNotGranter or Retry > 3 
 
 
 	DEBUG_PRINT("--> DHCPRawClient::DhcpClient() CLient:%d\n", m_ClientNumber);
@@ -495,7 +601,7 @@ DWORD DHCPRawClient::DhcpClient()
 
 DWORD DHCPRawClient::build_dhpc_request()
 {
-	printf("--> DHCPRawClient::build_dhpc_request CLient:%d\n", m_ClientNumber);
+	DEBUG_PRINT("--> DHCPRawClient::build_dhpc_request CLient:%d\n", m_ClientNumber);
 	
 	char* pchDomainName = NULL;
 	char* pcClientFQDN = (char*)malloc(sizeof(char) * strlen((const char*)m_ClientNamePrefix) + 255);
@@ -506,6 +612,9 @@ DWORD DHCPRawClient::build_dhpc_request()
 	BYTE rgb_ParameterRequestList[5] = { DHCP_SUBNETMASK, DHCP_BROADCASTADDR, DHCP_ROUTER, DHCP_DOMAINNAME, DHCP_DNS };
 
 	pDHCP_PACKET m_pDhcpReply = NULL;
+	
+	//this->m_DhcpRawMsg = DHCPRawPacket(this->m_MAC);
+
 	pDHCP_PACKET DhcpPacket = (pDHCP_PACKET)malloc(sizeof(DHCP_PACKET));
 	pDHCP_PACKET m_pDhcpPreviousRequest = this->m_pDhcpRequest;
 
@@ -514,7 +623,8 @@ DWORD DHCPRawClient::build_dhpc_request()
 		case StateTransition::Init:
 			iNbrOpt = DHCP_OPT_NBR_DISCVOVER;
 			DhcpMsgType = DHCP_MSGDISCOVER;
-			DhcpPacket->m_pDhcpMsg = m_DhcpRawMsg.get_DhcpMsg();
+			DhcpPacket->m_pDhcpMsg = this->m_DhcpRawMsg.get_DhcpMsg();
+			DhcpPacket->m_iRetry = 0;
 			break;
 		case StateTransition::Selecting:
 			m_pDhcpReply = this->m_pDhcpOffer;
@@ -523,13 +633,31 @@ DWORD DHCPRawClient::build_dhpc_request()
 				iNbrOpt++;
 
 			iNbrOpt += 2;
+			
+			DhcpPacket->m_iRetry = 0;
+
+			break;
+		case StateTransition::Renewing:
+			m_pDhcpReply = this->m_pDhcpOffer;
+			iNbrOpt = m_pDhcpPreviousRequest->m_iNbrOpt;
+			if (m_pDhcpReply->m_pDhcpMsg->dhcp_sip != 0)
+				iNbrOpt++;
+
+			iNbrOpt += 2;
+			
+			DhcpPacket->m_iRetry = m_pDhcpPreviousRequest != NULL ? m_pDhcpPreviousRequest->m_iRetry : 0;
+						
 			break;
 		default:
 			m_pDhcpReply = this->m_pDhcpAck;
 			iNbrOpt = m_pDhcpPreviousRequest->m_iNbrOpt;
 			if (m_pDhcpReply->m_pDhcpMsg->dhcp_sip != 0)
 				iNbrOpt++;
+	
 			iNbrOpt += 2;
+			
+			DhcpPacket->m_iRetry = m_pDhcpPreviousRequest != NULL ? m_pDhcpPreviousRequest->m_iRetry : 0;
+
 			break;
 	}
 	
@@ -613,14 +741,13 @@ DWORD DHCPRawClient::build_dhpc_request()
 	DhcpPacket->m_iSizeOpt = iDhcpOptSize;
 	DhcpPacket->m_iNbrOpt = iNbrOpt;
 	DhcpPacket->m_ltime = 0;
-	DhcpPacket->m_iRetry = 0;
 
 	// Assigning the DHCPpacket to the DHCPRawclient Object
 	this->m_pDhcpRequest = DhcpPacket;
 	
 	DhcpPacket = NULL;
 
-	printf("<-- DHCPRawClient::build_dhpc_request CLient:%d\n", m_ClientNumber);
+	DEBUG_PRINT("<-- DHCPRawClient::build_dhpc_request CLient:%d\n", m_ClientNumber);
 
 	return EXIT_SUCCESS;
 }
@@ -631,20 +758,18 @@ DWORD DHCPRawClient::SetDHCPRequestCompletionEvent(int bucket, pDHCP_PACKET pDhc
 {
 	DEBUG_PRINT("--> DHCPRawClient::SetDHCPRequestCompletionEvent CLient:%d\n", m_ClientNumber);
 
-	pDHCP_PACKET pDhcpRequest = ExtractElement(bucket, pDhcpReply);
+	pDHCP_PACKET pDhcpRequest = FindElement(bucket, pDhcpReply);
 	if (pDhcpRequest != NULL)
 	{
-		DEBUG_PRINT("--> DHCPRawClient::SetDHCPRequestCompletionEvent RequestXID:=%.8X ReplyXID=%.8X\n", 
-			ntohl((pDhcpRequest->m_pDhcpMsg->dhcp_xid)), ntohl((pDhcpReply->m_pDhcpMsg->dhcp_xid)));
-
 		if ((pDhcpRequest->m_pDhcpMsg->dhcp_xid == pDhcpReply->m_pDhcpMsg->dhcp_xid))
-		{
+	
+			DEBUG_PRINT("DHCPRawClient::SetDHCPRequestCompletionEvent SetEvent RequestXID=%.8X ReplyXID=%.8X\n",
+				ntohl((pDhcpRequest->m_pDhcpMsg->dhcp_xid)), ntohl((pDhcpReply->m_pDhcpMsg->dhcp_xid))); {
 			//Sets the event in order to let the sending thread to start his work
 			if (!SetEvent(pDhcpRequest->hCompletionEvent))
 			{
 				printf("DHCPRawClient::SetCompletionEvent failed (%d)\n", GetLastError());
 			}
-			return EXIT_SUCCESS;
 		}
 	}
 	DEBUG_PRINT("<-- DHCPRawClient::SetDHCPRequestCompletionEvent CLient:%d\n", m_ClientNumber);
@@ -668,6 +793,9 @@ HANDLE DHCPRawClient::Run()
 	* Sent DHCP Discover (pass it to relay by inserted it to the Queue if needed)
 	* Consume any DHCP Offer and reply accordingly by a request
 	* to the Q (do 3 restransmit)
+	Interresting reading:
+	https://www.ibm.com/support/knowledgecenter/ssw_ibm_i_72/rzab6/xnonblock.htm
+
 */
 DWORD DHCPRawClient::DhcpReceiver()
 {
@@ -679,15 +807,21 @@ DWORD DHCPRawClient::DhcpReceiver()
 	int SenderAddrSize = DHCP_MAX_PACKET_SIZE;
 	int recvbytes = 0;
 	int request = 0;
+	int optname = SO_BROADCAST;
+
+	struct timeval timeout;
 
 	//	DWORD dwWaitResult;
+	pDHCP_PACKET  DhcpReply = NULL;
 	BYTE DhcpMsgType = 0;
 	USHORT DhcpOptSize = 0;
 
-	SOCKET RcvSocket;
+	SOCKET RcvSocket = NULL;
 	SOCKADDR_STORAGE rcvfrom;
 	WSADATA wsaData = { 0 };
-	pDHCP_PACKET  DhcpReply = NULL;
+	fd_set readfs;
+
+
 
 	char* RecvBuff = (char*)(malloc(sizeof(char) * DHCP_MAX_PACKET_SIZE));;
 
@@ -712,20 +846,42 @@ DWORD DHCPRawClient::DhcpReceiver()
 		goto cleanup;
 	}
 
-	if (m_gRelayMode == FALSE)
-	{
-		if (setsockopt(RcvSocket, SOL_SOCKET, SO_BROADCAST, (char*)&optval, sizeof(optval)) == SOCKET_ERROR) {
-			printf("DHCPRawClient::Receive(): Error setsockopt() call failed : %d\n", WSAGetLastError());
-			goto cleanup;
-		}
+
+	optname = m_gRelayMode == TRUE ? SO_BROADCAST : SO_EXCLUSIVEADDRUSE;
+	//Set SO_EXCLUSIVEADDRUSE in case of Relay mode
+	iResult = setsockopt(RcvSocket, SOL_SOCKET, optname, (char*)&optval, sizeof(optval));
+	if (iResult  == SOCKET_ERROR) {
+		printf("DHCPRawClient::Receive(): Error setsockopt() call failed : %d\n", WSAGetLastError());
+		goto cleanup;
 	}
-	else
-	{
-		if (setsockopt(RcvSocket, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, (char*)&optval, sizeof(optval)) == SOCKET_ERROR) {
-			printf("DHCPRawClient::Receive(): Error setsockopt() call failed : %d\n", WSAGetLastError());
-			goto cleanup;
-		}
-	}
+
+	//if (m_gRelayMode == FALSE)
+	//{
+	//	if (setsockopt(RcvSocket, SOL_SOCKET, SO_BROADCAST, (char*)&optval, sizeof(optval)) == SOCKET_ERROR) {
+	//		printf("DHCPRawClient::Receive(): Error setsockopt() call failed : %d\n", WSAGetLastError());
+	//		goto cleanup;
+	//	}
+	//}
+	//else
+	//{
+	//	if (setsockopt(RcvSocket, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, (char*)&optval, sizeof(optval)) == SOCKET_ERROR) {
+	//		printf("DHCPRawClient::Receive(): Error setsockopt() call failed : %d\n", WSAGetLastError());
+	//		goto cleanup;
+	//	}
+	//}
+
+
+	//-------------------------
+	// Set the socket I/O mode: In this case FIONBIO
+	// enables or disables the blocking mode for the 
+	// socket based on the numerical value of iMode.
+	// If iMode = 0, blocking is enabled; 
+	// If iMode != 0, non-blocking mode is enabled.
+	iResult = ioctlsocket(RcvSocket, FIONBIO, 0);
+	if (iResult != NO_ERROR)
+		printf("DHCPRawClient::Receive(): ioctlsocket failed with error: %ld\n", iResult);
+
+
 
 	//----------------------
 	// Bind the socket.
@@ -736,74 +892,105 @@ DWORD DHCPRawClient::DhcpReceiver()
 		goto cleanup;
 	}
 
-	//Sets the event in order to let the sending thread to start his work
+	//Sets the g_hSocketWaitEvent to wake up DHCP Clients threads... We are ready to receive...
 	if (!SetEvent(g_hSocketWaitEvent))
 	{
 		printf("DHCPRawClient::Receive(): SetEvent failed (%d)\n", GetLastError());
-		goto cleanup;
+		goto cleanup; 
 	}
 	
+
 	//while (!bEndOfProgram)
 	for (;;) 
 	{
-		recvbytes = recvfrom(RcvSocket, RecvBuff, DHCP_MAX_PACKET_SIZE, 0, (SOCKADDR*)&rcvfrom, &SenderAddrSize);
+		//timeout.tv_sec = 1; /* 1 s */
+		timeout.tv_usec = 5 * 100 * 1000; /* 500 ms */
+		timeout.tv_sec = 10; /* 500 ms */
 
-		if (recvbytes == SOCKET_ERROR)
-			goto cleanup;
 
-		DhcpReply = (pDHCP_PACKET)malloc(sizeof(DHCP_PACKET));
-		DhcpReply->m_pDhcpMsg = (pDHCPv4_HDR)malloc(sizeof(DHCPv4_HDR));
-		memcpy(DhcpReply->m_pDhcpMsg, RecvBuff, sizeof(DHCPv4_HDR));;
+		FD_ZERO(&readfs);      /* clears readfs */
+		FD_SET(RcvSocket, &readfs); /* adds a stream */
 
-		if (recvbytes >= DHCP_MIN_PACKET_SIZE)
+		DEBUG_PRINT("DHCPRawClient::Receive(): Waiting on select()....\n");
+		iResult = select((int)RcvSocket, &readfs, NULL, NULL, &timeout);
+
+		switch (iResult)
 		{
-			DEBUG_PRINT("DHCPRawClient::Receive(): DhcpMsg Received Bytes=%d\n", recvbytes);
-
-			USHORT cpt = DHCPv4_H;
-			USHORT nbrOpt = 0;
-			while (cpt < recvbytes - 1)
+		case 0:
+			//if all DHCP clients are exited, then exit as well
+			if ( g_DhcpReceiverAlone )
 			{
-				cpt += (2 + RecvBuff[cpt + 1]);
-				nbrOpt++;
+				printf("DHCPRawClient::Receive():  select() TimeOut End of program\n");
+				goto cleanup;
 			}
-			DhcpReply->m_iSizeOpt = cpt - DHCPv4_H;
-			DhcpReply->m_ppDhcpOpt = (PDHCP_OPT*)malloc(sizeof(PDHCP_OPT) * nbrOpt);
-
-			cpt = DHCPv4_H;
-			for (int i = 0; i < nbrOpt; i++)
-			{
-				DhcpReply->m_ppDhcpOpt[i] =	(PDHCP_OPT)malloc(sizeof(DHCP_OPT));
-				DhcpReply->m_ppDhcpOpt[i]->OptionType = RecvBuff[cpt];
-				DhcpReply->m_ppDhcpOpt[i]->OptionLength = RecvBuff[cpt + 1];
-				DhcpReply->m_ppDhcpOpt[i]->OptionValue=(PBYTE)malloc((sizeof(BYTE)*DhcpReply->m_ppDhcpOpt[i]->OptionLength));
-				for (int j = 0; j < DhcpReply->m_ppDhcpOpt[i]->OptionLength; j++)
-					DhcpReply->m_ppDhcpOpt[i]->OptionValue[j] = RecvBuff[cpt + 2 + j];
-
-				cpt += (2 + RecvBuff[cpt + 1]);
-			}
-			DhcpReply->m_iNbrOpt = nbrOpt;
-			DhcpMsgType = (BYTE)DhcpReply->m_ppDhcpOpt[0]->OptionValue[0];
-
-			//DhcpReply->m_pNext = NULL;
-
-			//Timestamp the message before inserting it
-			time(&(DhcpReply->m_ltime));
-
-			//Insert Reply and signal compleation event
-			InsertLock(DHCP_REPLY-1, DhcpReply);
-			SetDHCPRequestCompletionEvent(DHCP_REQUEST-1, DhcpReply);
-		}
-		else
-		{
-			DhcpReply->m_iSizeOpt = 0;
-			DhcpReply->m_iNbrOpt = 0;
+			break;
+		case SOCKET_ERROR:
+			printf("DHCPRawClient::Receive():  select() failed\n");
+			break;
+			//else ready to read
 		}
 
+		if (FD_ISSET(RcvSocket, &readfs))
+		{
+			recvbytes = recvfrom(RcvSocket, RecvBuff, DHCP_MAX_PACKET_SIZE, 0, (SOCKADDR*)&rcvfrom, &SenderAddrSize);
 
-		iResult = WSAGetLastError(); // iResult turns 10057
-										//Which means the socket isnt connected
+			if (recvbytes == SOCKET_ERROR)
+				goto cleanup;
 
-		ZeroMemory(RecvBuff, sizeof(char)*DHCP_MAX_PACKET_SIZE);;
+			DhcpReply = (pDHCP_PACKET)malloc(sizeof(DHCP_PACKET));
+			DhcpReply->m_pDhcpMsg = (pDHCPv4_HDR)malloc(sizeof(DHCPv4_HDR));
+			memcpy(DhcpReply->m_pDhcpMsg, RecvBuff, sizeof(DHCPv4_HDR));;
+
+			if (recvbytes >= DHCP_MIN_PACKET_SIZE)
+			{
+				DEBUG_PRINT("DHCPRawClient::Receive(): DhcpMsg Received Bytes=%d\n", recvbytes);
+
+				USHORT cpt = DHCPv4_H;
+				USHORT nbrOpt = 0;
+				while (cpt < recvbytes - 1)
+				{
+					cpt += (2 + RecvBuff[cpt + 1]);
+					nbrOpt++;
+				}
+				DhcpReply->m_iSizeOpt = cpt - DHCPv4_H;
+				DhcpReply->m_ppDhcpOpt = (PDHCP_OPT*)malloc(sizeof(PDHCP_OPT) * nbrOpt);
+
+				cpt = DHCPv4_H;
+				for (int i = 0; i < nbrOpt; i++)
+				{
+					DhcpReply->m_ppDhcpOpt[i] = (PDHCP_OPT)malloc(sizeof(DHCP_OPT));
+					DhcpReply->m_ppDhcpOpt[i]->OptionType = RecvBuff[cpt];
+					DhcpReply->m_ppDhcpOpt[i]->OptionLength = RecvBuff[cpt + 1];
+					DhcpReply->m_ppDhcpOpt[i]->OptionValue = (PBYTE)malloc((sizeof(BYTE) * DhcpReply->m_ppDhcpOpt[i]->OptionLength));
+					for (int j = 0; j < DhcpReply->m_ppDhcpOpt[i]->OptionLength; j++)
+						DhcpReply->m_ppDhcpOpt[i]->OptionValue[j] = RecvBuff[cpt + 2 + j];
+
+					cpt += (2 + RecvBuff[cpt + 1]);
+				}
+				DhcpReply->m_iNbrOpt = nbrOpt;
+				DhcpMsgType = (BYTE)DhcpReply->m_ppDhcpOpt[0]->OptionValue[0];
+
+				//DhcpReply->m_pNext = NULL;
+
+				//Timestamp the message before inserting it
+				time(&(DhcpReply->m_ltime));
+
+				//Insert Reply and signal compleation event
+				InsertLock(DHCP_REPLY - 1, DhcpReply);
+				SetDHCPRequestCompletionEvent(DHCP_REQUEST - 1, DhcpReply);
+			}
+			else
+			{
+				DhcpReply->m_iSizeOpt = 0;
+				DhcpReply->m_iNbrOpt = 0;
+			}
+
+
+			iResult = WSAGetLastError(); // iResult turns 10057
+											//Which means the socket isnt connected
+
+			ZeroMemory(RecvBuff, sizeof(char) * DHCP_MAX_PACKET_SIZE);
+		}
 	}
 
 	if (closesocket(RcvSocket) == SOCKET_ERROR) 
@@ -826,7 +1013,7 @@ DWORD DHCPRawClient::SendDhcpRequest()
 {
 	DEBUG_PRINT("--> SendDhcpRequest()\n");
 
-	SOCKET sock;
+	SOCKET sock = NULL;
 	SOCKADDR_STORAGE src_sockaddr, dst_sockaddr;
 	WSADATA wsaData = { 0 };
 	
@@ -927,8 +1114,7 @@ DWORD DHCPRawClient::SendDhcpRequest()
 
 	if (sendto(sock, buf, ip_len, 0, (SOCKADDR*)&dst_sockaddr, sizeof(dst_sockaddr)) == SOCKET_ERROR) 
 	{
-		printf("SendDhcpRequest() : ERROR sendto() call from to %s:%d to %s:%d failed %d\n",
-			myIPv4Hdr->ip_srcaddr, myUDPv4hdr->src_port, myIPv4Hdr->ip_destaddr, myUDPv4hdr->dst_port, WSAGetLastError());
+		printf("SendDhcpRequest() : ERROR sendto() call %d\n",WSAGetLastError());
 	}
 
 cleanup:
@@ -942,85 +1128,5 @@ cleanup:
 	return iResult;
 }
 
-/////////////////////////////
-//DHCPRawLease Class Functions
-/////////////////////////////
-
-DHCPRawLease::DHCPRawLease(pDHCP_PACKET pDhcpAck, int ClientId)
-{
-	CreateLease(pDhcpAck, ClientId);
-}
-
-void DHCPRawLease::CreateLease(pDHCP_PACKET pDhcpAck, int ClientId)
-{
-	DEBUG_PRINT("--> DHCPRawLease::DhcpClient() CLient:%d\n", ClientId);
-	
-
-	m_pDhcpLease = (pDHCP_LEASE)malloc(sizeof(DHCP_LEASE));
-	m_pDhcpLease->m_iClientID = ClientId;
-	m_pDhcpLease->m_pDhcpPacketAck = pDhcpAck;
-	m_pDhcpLease->m_T1 = 0;
-	m_pDhcpLease->m_T2 = 0;
-
-	ULONG seconds = 0;
-	ULONG t1 = 0;
-	ULONG t2 = 0;
-
-	//Getting IP address
-	inet_ntop(AF_INET, &(m_pDhcpLease->m_pDhcpPacketAck->m_pDhcpMsg->dhcp_yip), m_LocalAddrIp, INET_ADDRSTRLEN);
-
-
-	//Compute T1 & T2
-	for (int i = 0; i < m_pDhcpLease->m_pDhcpPacketAck->m_iNbrOpt; i++)
-	{
-		if (m_pDhcpLease->m_pDhcpPacketAck->m_ppDhcpOpt[i]->OptionType == DHCP_LEASETIME)
-		{
-			for(int j = 0; j < m_pDhcpLease->m_pDhcpPacketAck->m_ppDhcpOpt[i]->OptionLength; j++)
-				seconds = (seconds * 0x100) + m_pDhcpLease->m_pDhcpPacketAck->m_ppDhcpOpt[i]->OptionValue[j];
-			
-			m_pDhcpLease->m_T2 = m_pDhcpLease->m_pDhcpPacketAck->m_ltime;
-			m_pDhcpLease->m_T1 = m_pDhcpLease->m_pDhcpPacketAck->m_ltime;
-			
-			t1 = seconds / 2;
-			m_pDhcpLease->m_T1 += t1;
-
-			t2 = seconds*1000/875;
-			m_pDhcpLease->m_T2 += t2;
-		}
-
-		if (m_pDhcpLease->m_pDhcpPacketAck->m_ppDhcpOpt[i]->OptionType == DHCP_SERVIDENT)
-		{
-			inet_ntop(AF_INET, &(m_pDhcpLease->m_pDhcpPacketAck->m_ppDhcpOpt[i]->OptionValue[0]), m_ServerAddrIp, INET_ADDRSTRLEN);
-		}
-	}
-
-	DEBUG_PRINT("<-- DHCPRawLease::DhcpClient() CLient:%d\n", ClientId);
-}
-
-void DHCPRawLease::DeleteLease()
-{
-
-}
-
-pDHCP_LEASE DHCPRawLease::GetLease()
-{
-	return m_pDhcpLease;
-}
-
-void DHCPRawLease::print()
-{
-	char dhcp_yip[INET_ADDRSTRLEN];
-	inet_ntop(AF_INET, &(m_pDhcpLease->m_pDhcpPacketAck->m_pDhcpMsg->dhcp_yip), dhcp_yip, INET_ADDRSTRLEN);
-
-
-	printf("LeaseGranted:\n");
-	printf("\tClientID:%d\n\tMyIP:%s\n\tServerIP:%s\n", m_pDhcpLease->m_iClientID, m_LocalAddrIp,m_ServerAddrIp);
-	char* t0 = ctime(&m_pDhcpLease->m_pDhcpPacketAck->m_ltime);
-	printf("\tLeaseObtened:%s", t0);
-	char* t1 = ctime(&m_pDhcpLease->m_T1);
-	printf("\tT1:%s", t1);
-	char* t2 = ctime(&m_pDhcpLease->m_T2);
-	printf("\tT2:%s", t2);
-}
 
 }

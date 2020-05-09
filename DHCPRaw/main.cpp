@@ -13,6 +13,7 @@
 CRITICAL_SECTION g_CS[DHCP_REPLY];
 HANDLE g_hSocketWaitEvent;
 HANDLE g_hDiscoverReadyWaitEvent;
+bool g_DhcpReceiverAlone = false;
 
 using namespace DHCPRaw;
 
@@ -109,20 +110,23 @@ int main(int argc, char* argv[])
 	}
 
 	//Adding Ip Address of Relay
-	if (! IsIPv4AddrPlumbebOnAdapter(IfIndex, RelayAddr))
+	if (bIsRealyOn)
 	{
-		if (dwRetVal =AddIPAddress(inet_addr(RelayAddr), inet_addr("255.255.255.0"), IfIndex, &NTEContext, &NTEInstance) == NO_ERROR )
-			printf("main(): Relay IPv4 address %s was successfully added.\n", RelayAddr);
-		else
-			printf("main(): IPv4 address %s failed to be added with error: %d\n", RelayAddr, dwRetVal);
-
-		//Waiting till the IP is bound
-		do
+		if (!IsIPv4AddrPlumbebOnAdapter(IfIndex, RelayAddr))
 		{
-			printf("main(): waiting till RelayAddr=%s is reachabled\n", RelayAddr);
-			Sleep(5000);
-		}while (MyEcho(RelayAddr) != 0);
+			if (dwRetVal = AddIPAddress(inet_addr(RelayAddr), inet_addr("255.255.255.0"), IfIndex, &NTEContext, &NTEInstance) == NO_ERROR)
+				printf("main(): Relay IPv4 address %s was successfully added.\n", RelayAddr);
+			else
+				printf("main(): IPv4 address %s failed to be added with error: %d\n", RelayAddr, dwRetVal);
 
+			//Waiting till the IP is bound
+			do
+			{
+				printf("main(): waiting till RelayAddr=%s is reachabled\n", RelayAddr);
+				Sleep(5000);
+			} while (MyEcho(RelayAddr) != 0);
+
+		}
 	}
 
 	/*	Initialize THREADS :
@@ -194,8 +198,14 @@ int main(int argc, char* argv[])
 	}
 
 	
-	// Waiting on worker thread to terminate before exiting program
-	WaitForMultipleObjects(NbrLeases+1, hWorkerThread, TRUE, INFINITE);
+	// Waiting on DHCP CLient thread to terminate before exiting program
+	WaitForMultipleObjects(NbrLeases, hWorkerThread, TRUE, INFINITE);
+
+	// Waiting on DHCP Receiver thread to stop
+	g_DhcpReceiverAlone = true;
+	WaitForMultipleObjects(1, hWorkerThread, TRUE, INFINITE);
+
+	printf("DHCPRaw is exiting. Thanks for using it! Feedback : vidou@microsoft.com / vincent.douhet@gmail.com\n");
 
 	return EXIT_SUCCESS;
 }
