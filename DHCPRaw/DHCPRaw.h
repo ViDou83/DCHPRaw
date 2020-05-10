@@ -166,7 +166,7 @@ namespace DHCPRaw
 		{
 			;
 		}
-		DHCPRawLease(pDHCP_PACKET pDhcpAck, int ClientId);
+		DHCPRawLease(pDHCP_PACKET& pDhcpAck, int ClientId);
 		/////////////////////
 		/// Methods
 		/////////////////////
@@ -177,16 +177,15 @@ namespace DHCPRaw
 	private:
 		/////////////////////
 		/// attributes
-		/////////////////////			
-		pDHCP_LEASE m_pDhcpLease = NULL;
-		char m_LocalAddrIp[INET_ADDRSTRLEN] = { 0 };
-		char m_ServerAddrIp[INET_ADDRSTRLEN] = { 0 };
+		/////////////////////	
+		pDHCP_LEASE m_pDhcpLease	= NULL;
+		char m_LocalAddrIp[INET_ADDRSTRLEN]		= { 0 };
+		char m_ServerAddrIp[INET_ADDRSTRLEN]	= { 0 };
 
 		/////////////////////
 		/// Methods
 		/////////////////////
-		//Set MAC from getting underlying MAC address using IP HLP API
-		void CreateLease(pDHCP_PACKET pDhcpAck, int ClientId);
+		void SetLease(pDHCP_PACKET& pDhcpAck, int ClientId);
 		void DeleteLease();
 	};
 
@@ -206,21 +205,23 @@ namespace DHCPRaw
 			/////////////////////
 			/// Methods
 			/////////////////////
-			void print();
-			HANDLE Run();
-			void destroy();
+			void	print();
+			HANDLE	Run();
+			void	destroy();
 			//
-			pIPv4_HDR get_IPv4_HDR();
-			pUDPv4_HDR get_UDPv4_HDR();
-			pDHCPv4_HDR get_DhcpMsg();
+			pDHCP_PACKET	get_pDhcpPacket();
+			pIPv4_HDR		get_pIPv4hdr();
+			pUDPv4_HDR		get_pUDPv4hdr();
+			pDHCPv4_HDR		get_pDhcpMsg();
 
 		private:
 			/////////////////////
 			/// attributes
-			/////////////////////					
-			pIPv4_HDR m_pIPv4_HDR = NULL;
-			pUDPv4_HDR m_pUDPv4_HDR = NULL;
-			pDHCPv4_HDR m_pDhcpMsg = NULL;
+			/////////////////////	
+			pDHCP_PACKET	m_pDhcpPacket	= NULL;
+			//pDHCP_PACKET	m_pDHCPv4_HDR	= NULL;
+			pIPv4_HDR		m_pIPv4_HDR		= NULL;
+			pUDPv4_HDR		m_pUDPv4_HDR	= NULL;
 
 			/////////////////////
 			/// Methods
@@ -243,7 +244,7 @@ namespace DHCPRaw
 			/////////////////////
 			DHCPRawClient()
 			{
-				//
+				;
 			}
 			//Regular DHCPRawClient Objects
 			DHCPRawClient(int number, int ifindex, char* ClientPrefixName);
@@ -264,25 +265,24 @@ namespace DHCPRaw
 			/// attributes
 			/////////////////////			
 			BYTE	m_MAC[ETHER_ADDR_LEN]{ 0,0,0,0,0,0 };
-			int		m_IfIndex=0;
-			int		m_ClientNumber=0;
+			int		m_IfIndex = 0;
+			int		m_ClientNumber = 0;
 			bool	m_IsReceiver = false;
 			bool	m_IsOfferReceive = false;
 			int		m_StateTransition = StateTransition::Init;
-			bool	m_gRelayMode = false;
+			bool	m_gRelayMode = FALSE;
 			char*	m_RelayAddr = NULL;
 			char*	m_SrvAddr = NULL;
 			char*	m_ClientNamePrefix = NULL;
+			HANDLE	m_hTimer = NULL;
 
-
-			DHCPRawPacket m_DhcpRawMsg;
-			DHCPRawLease m_DhcpRawLease;
+			DHCPRawPacket	m_DhcpRawPacket;
+			DHCPRawLease	m_DhcpRawLease;
 			//pDHCP_PACKET is the struct enqueued to the hashtable... DHCP Sender/receiver will then consume it.
-			pDHCP_PACKET m_pDhcpRequest = NULL;
-			pDHCP_PACKET m_pDhcpOffer = NULL;
-			pDHCP_PACKET m_pDhcpAck = NULL;
-
-			pDHCP_LEASE m_pDhcpLease = NULL;
+			pDHCP_PACKET	m_pDhcpRequest	= NULL;
+			pDHCP_PACKET	m_pDhcpOffer	= NULL;
+			pDHCP_PACKET	m_pDhcpAck		= NULL;
+			pDHCP_LEASE		m_pDhcpLease	= NULL;
 
 			/////////////////////
 			/// Methods
@@ -303,7 +303,7 @@ namespace DHCPRaw
 			DWORD SetStateTransition(int NewState);
 			DWORD build_dhpc_request();
 			//
-			int		getClientNumber();
+			int getClientNumber();
 
 			//Static method needed to run thread... Need to explore C++11 threading support
 			static DWORD WINAPI ThreadEntryPoint(LPVOID lpParameter)
