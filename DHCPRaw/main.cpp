@@ -17,7 +17,6 @@ bool g_DhcpReceiverAlone = false;
 bool g_pDhcpCustomOpt = false;
 
 using namespace DHCPRaw;
-using namespace web;
 
 /* Helper */
 void Help() 
@@ -168,9 +167,7 @@ int main(int argc, char* argv[])
 		return EXIT_FAILURE;
 	}
 
-	/* Initialize Mutex by DHCP type Q
-		TODO : change MUTEX by CriticalSection
-	*/
+	/* Initialize CriticalSection 	*/
 	for (int i = 0; i < DHCP_REPLY; i++)
 	{
 		if (!InitializeCriticalSectionAndSpinCount(&g_CS[i], 0x00000400))
@@ -212,7 +209,7 @@ int main(int argc, char* argv[])
 	g_DhcpReceiverAlone = true;
 	WaitForMultipleObjects(1, hWorkerThread, TRUE, INFINITE);
 
-	printf("DHCPRaw is exiting. Thanks for using it! Feedback : vidou@microsoft.com / vincent.douhet@gmail.com\n");
+	printf("DHCPRaw is exiting. Thanks for using it!\nFeedback : vidou@microsoft.com / vincent.douhet@gmail.com\n");
 
 	return EXIT_SUCCESS;
 }

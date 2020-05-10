@@ -2,8 +2,6 @@
 
 #define DHCP_OPT_NBR_DISCVOVER 3
 
-#define EthAddrEquals(x1,x2)	((x1))
-
 DhcpMsgQ DHCPOutstandingMsgQ[DHCP_REPLY];
 bool g_bRelayMode = false;
 
@@ -266,13 +264,13 @@ void DHCPRawPacket::print()
 /////////////////////////////
 /* DHCPRawLease Constructor */
 
-DHCPRawLease::DHCPRawLease(pDHCP_PACKET& pDhcpAck, int ClientId)
+DHCPRawLease::DHCPRawLease(pDHCP_PACKET& pDhcpAck, pDHCP_PACKET& pDhcpRequest,int ClientId)
 {
-	SetLease(pDhcpAck, ClientId);
+	SetLease(pDhcpAck, pDhcpRequest, ClientId);
 }
 
 /* DHCPRawLease SetLease SetMethod */
-void DHCPRawLease::SetLease(pDHCP_PACKET& pDhcpAck, int ClientId)
+void DHCPRawLease::SetLease(pDHCP_PACKET& pDhcpAck, pDHCP_PACKET& pDhcpRequest, int ClientId)
 {
 	DEBUG_PRINT("--> DHCPRawLease::DhcpClient() CLient:%d\n", ClientId);
 
@@ -282,8 +280,7 @@ void DHCPRawLease::SetLease(pDHCP_PACKET& pDhcpAck, int ClientId)
 	//m_pDhcpLease = (pDHCP_LEASE)malloc(sizeof(DHCP_LEASE));
 	pDhcpLease->m_iClientID = ClientId;
 	pDhcpLease->m_pDhcpPacketAck = pDhcpAck;
-	pDhcpLease->m_T1 = 0;
-	pDhcpLease->m_T2 = 0;
+	pDhcpLease->m_T1 = pDhcpLease->m_T2 = pDhcpRequest->m_ltime; //Assigning the request time first
 
 	ULONG seconds = 0;
 	ULONG t1 = 0;
@@ -301,12 +298,14 @@ void DHCPRawLease::SetLease(pDHCP_PACKET& pDhcpAck, int ClientId)
 			for (int j = 0; j < pDhcpLease->m_pDhcpPacketAck->m_ppDhcpOpt[i]->OptionLength; j++)
 				seconds = (seconds * 0x100) + pDhcpLease->m_pDhcpPacketAck->m_ppDhcpOpt[i]->OptionValue[j];
 
-			pDhcpLease->m_T1 = pDhcpLease->m_pDhcpPacketAck->m_ltime;
-			pDhcpLease->m_T2 = pDhcpLease->m_pDhcpPacketAck->m_ltime;
+			//Getting the End of the lease
+			pDhcpLease->m_TEnd = pDhcpRequest->m_ltime + seconds;
 
+			//T1 : Adding 50% of the lease time 
 			t1 = seconds / 2;
-			pDhcpLease->m_T1 += t1;
+			pDhcpLease->m_T1 += t1; 
 
+			//T2 : Adding 87.5% of the lease time
 			t2 = seconds * 1000 / 875;
 			pDhcpLease->m_T2 += t2;
 		}
@@ -493,7 +492,6 @@ DWORD DHCPRawClient::SetStateTransition(int NewState)
 DWORD DHCPRawClient::DhcpClient()
 {
 	DEBUG_PRINT("--> DHCPRawClient::DhcpClient() CLient:%d\n", m_ClientNumber);
-
 	/* First wait on that the DHCP receiver*/
 	DWORD dwWaitResultOnSocketEvent;
 	DWORD dwWaitOnCompletionRequest;
@@ -511,7 +509,6 @@ DWORD DHCPRawClient::DhcpClient()
 	dwWaitResultOnSocketEvent = WaitForSingleObject(
 		g_hSocketWaitEvent, // event handle
 		INFINITE);    // ind
-
 
 	switch (dwWaitResultOnSocketEvent)
 	{
@@ -540,24 +537,26 @@ DWORD DHCPRawClient::DhcpClient()
 			case StateTransition::Init:
 				//Build DHCP Discover
 				build_dhpc_request();
-				SetStateTransition(m_StateTransition + 1);
+				//Transition to selecting
+				SetStateTransition(m_StateTransition + 1); 
 				break;
+			//Selecting is implementing into the receive part see below after the wait on completion event
 
-			case StateTransition::Selecting:
+			case StateTransition::Requesting:
+				//TODO : implementing a way to collect multiple OFFER before selecting
+				// And ARP request and DECLINE eventually
 				if (this->m_pDhcpOffer != NULL)
 				{
 					//Build DHCP Request following OFFER
 					build_dhpc_request();
-					//Transit to Requesting
-					SetStateTransition(m_StateTransition + 1);
 				}
-	
+
 				break;
 			case StateTransition::Bound:
 				//CreateLease
 				m_pDhcpRequest->m_iRetry = 0;
 
-				m_DhcpRawLease = DHCPRawLease(m_pDhcpAck, m_ClientNumber);
+				m_DhcpRawLease = DHCPRawLease(m_pDhcpAck, m_pDhcpRequest, m_ClientNumber);
 				m_pDhcpLease = m_DhcpRawLease.GetLease();
 				//Sleep(5 * m_ClientNumber);
 				m_DhcpRawLease.print();
@@ -571,21 +570,23 @@ DWORD DHCPRawClient::DhcpClient()
 					return 2;
 				}
 
-				printf("Waiting for T1 expired...\n");
+				printf("Waiting for T1 to be expired...\n");
 
-				// Wait for the timer.
+				// Wait for the  T1 to be expired
 				if (WaitForSingleObject(this->m_hTimer, INFINITE) != WAIT_OBJECT_0)
 					printf("WaitForSingleObject failed (%d)\n", GetLastError());
-				else printf("T1 is expired.\n");
+				else printf("T1 is expired. Transitionning to Renewing !\n");
 
-				build_dhpc_request();
+				//Transition to Renewing
 				SetStateTransition(m_StateTransition + 1);
 
 				break;
 			case StateTransition::Renewing:
-
+				
 				if (m_pDhcpRequest->m_iRetry == DHCP_RETRANSMIT_COUNT - 1) // If no ACK received at T1, then waits T2 and transition to rebinding
 				{
+				
+					//In renewing we transitionne to rebinding after T2 if not answer received
 					m_pDhcpRequest->m_iRetry = 0;
 
 					liDueTime = UnixTimeToFileTime(m_pDhcpLease->m_T2);
@@ -597,23 +598,56 @@ DWORD DHCPRawClient::DhcpClient()
 						return 2;
 					}
 
-					printf("Waiting for T2 expired...\n");
+					printf("Waiting for T2 to be expired...\n");
+
 					// Wait for the timer.
 					if (WaitForSingleObject(this->m_hTimer, INFINITE) != WAIT_OBJECT_0)
 						printf("WaitForSingleObject failed (%d)\n", GetLastError());
-					else printf("T2 is expired.\n");
+					else printf("T2 is expired. Transitionning to Rebinding!\n");
 
 					//Transitionning to rebinding state
 					SetStateTransition(m_StateTransition + 1);
+				}
+				//Otherwise try to renew
+				build_dhpc_request();
 
-					build_dhpc_request();
+				break;
+			case StateTransition::Rebinding:
+				if (m_pDhcpRequest->m_iRetry == DHCP_RETRANSMIT_COUNT - 1) // If no ACK received at T1, then waits T2 and transition to rebinding
+				{
+					liDueTime = UnixTimeToFileTime(m_pDhcpLease->m_TEnd);
+					
+					//Need to wait until the lease is expired					
+					if (!SetWaitableTimer(this->m_hTimer, &liDueTime, 0, NULL, NULL, 0))
+					{
+						printf("SetWaitableTimer failed (%d)\n", GetLastError());
+						return 2;
+					}
+
+					printf("Waiting until the lease is expired...\n");
+
+					// Wait for the timer.
+					if (WaitForSingleObject(this->m_hTimer, INFINITE) != WAIT_OBJECT_0)
+						printf("WaitForSingleObject failed (%d)\n", GetLastError());
+					else printf("Lease is expired. Transitionning to INIT!\n");
+						
+					//Transitionning to Init
+					SetStateTransition(StateTransition::Init);
+					free(m_pDhcpRequest);
+					free(m_pDhcpAck);
+					free(m_pDhcpOffer);
+					free(m_pDhcpLease);
+					//Do not go to DISCOVER AGAIN just the program... DHCPRaw is not intend to replace a DHCP Client :)
+					return EXIT_FAILURE;
 				}
 				break;
 		}
 
-		//Send this->m_pDhcpRequest
+		//Insert Request in Q in order to let DHCP receiver thread settung the completion event
 		InsertLock(DHCP_REQUEST - 1, this->m_pDhcpRequest);
+		
 		SendDhcpRequest();
+	
 
 		//waiting until the completion event is signaled
 		dwWaitOnCompletionRequest = WaitForSingleObject(
@@ -627,8 +661,8 @@ DWORD DHCPRawClient::DhcpClient()
 				//
 				// TODO: Read from the shared buffer
 				//
-				pDhcpReply = ExtractElement(DHCP_REPLY-1, this->m_pDhcpRequest);
-
+				pDhcpReply = ExtractElement(DHCP_REPLY-1, m_pDhcpRequest);
+		
 				DEBUG_PRINT("DHCPRawClient::DhcpClient()  DCHP Reply received: MsgType=%d\n", pDhcpReply->m_ppDhcpOpt[0]->OptionValue[0]);
 
 				switch ((int)pDhcpReply->m_ppDhcpOpt[0]->OptionValue[0])
@@ -637,8 +671,10 @@ DWORD DHCPRawClient::DhcpClient()
 						if (m_StateTransition == StateTransition::Selecting)
 						{
 							this->m_pDhcpOffer = pDhcpReply;
+							//Transition to requesting
+							SetStateTransition(m_StateTransition + 1);
 						}
-						else if (this->m_pDhcpOffer->m_pDhcpMsg->dhcp_xid == pDhcpReply->m_pDhcpMsg->dhcp_xid)  //DROP Duplicate
+						else //if (this->m_pDhcpOffer->m_pDhcpMsg->dhcp_xid == pDhcpReply->m_pDhcpMsg->dhcp_xid)  //DROP Duplicate
 							free(pDhcpReply); //Let's implement collects and selecting
 						
 						break;
@@ -646,9 +682,9 @@ DWORD DHCPRawClient::DhcpClient()
 					case DHCP_MSGACK:
 						if (m_StateTransition != StateTransition::Bound)
 						{
-							SetStateTransition(StateTransition::Bound);
 							//Store new ACK
 							this->m_pDhcpAck = pDhcpReply;
+							SetStateTransition(m_StateTransition + 1);
 						}
 						else // (this->m_pDhcpAck->m_pDhcpMsg->dhcp_xid == pDhcpReply->m_pDhcpMsg->dhcp_xid) //DROP Duplicate
 							free(pDhcpReply);
@@ -718,7 +754,7 @@ DWORD DHCPRawClient::build_dhpc_request()
 			//DhcpPacket->m_pDhcpMsg = this->m_DhcpRawPacket.get_pDhcpMsg();
 			DhcpPacket->m_iRetry = 0;
 			break;
-		case StateTransition::Selecting:
+		case StateTransition::Requesting:
 			m_pDhcpReply = this->m_pDhcpOffer;
 			iNbrOpt = m_pDhcpPreviousRequest->m_iNbrOpt;
 			if (m_pDhcpReply->m_pDhcpMsg->dhcp_sip != 0)
@@ -737,7 +773,6 @@ DWORD DHCPRawClient::build_dhpc_request()
 			iNbrOpt += 2;
 			
 			DhcpPacket->m_iRetry = m_pDhcpPreviousRequest != NULL ? m_pDhcpPreviousRequest->m_iRetry : 0;
-						
 			break;
 		default:
 			m_pDhcpReply = this->m_pDhcpAck;
@@ -748,7 +783,6 @@ DWORD DHCPRawClient::build_dhpc_request()
 			iNbrOpt += 2;
 			
 			DhcpPacket->m_iRetry = m_pDhcpPreviousRequest != NULL ? m_pDhcpPreviousRequest->m_iRetry : 0;
-
 			break;
 	}
 	
@@ -847,23 +881,29 @@ DWORD DHCPRawClient::build_dhpc_request()
 
 DWORD DHCPRawClient::SetDHCPRequestCompletionEvent(int bucket, pDHCP_PACKET pDhcpReply)
 {
-	DEBUG_PRINT("--> DHCPRawClient::SetDHCPRequestCompletionEvent CLient:%d\n", m_ClientNumber);
+	DEBUG_PRINT("--> DHCPRawClient::SetDHCPRequestCompletionEvent CLient:%d\n");
 
 	pDHCP_PACKET pDhcpRequest = FindElement(bucket, pDhcpReply);
 	if (pDhcpRequest != NULL)
 	{
 		if ((pDhcpRequest->m_pDhcpMsg->dhcp_xid == pDhcpReply->m_pDhcpMsg->dhcp_xid))
-	
+		{
 			DEBUG_PRINT("DHCPRawClient::SetDHCPRequestCompletionEvent SetEvent RequestXID=%.8X ReplyXID=%.8X\n",
-				ntohl((pDhcpRequest->m_pDhcpMsg->dhcp_xid)), ntohl((pDhcpReply->m_pDhcpMsg->dhcp_xid))); {
+				ntohl((pDhcpRequest->m_pDhcpMsg->dhcp_xid)), ntohl((pDhcpReply->m_pDhcpMsg->dhcp_xid)));
 			//Sets the event in order to let the sending thread to start his work
 			if (!SetEvent(pDhcpRequest->hCompletionEvent))
 			{
 				printf("DHCPRawClient::SetCompletionEvent failed (%d)\n", GetLastError());
 			}
 		}
+		else
+		{
+			DEBUG_PRINT("DHCPRawClient::SetDHCPRequestCompletionEvent DROPPING DHCP REPLY due to XID mismatch\n");
+			free(pDhcpReply); //Associate Request not found ... Silenty DROP the packet
+		}
+
 	}
-	DEBUG_PRINT("<-- DHCPRawClient::SetDHCPRequestCompletionEvent CLient:%d\n", m_ClientNumber);
+	DEBUG_PRINT("<-- DHCPRawClient::SetDHCPRequestCompletionEvent CLient:%d\n");
 
 	return EXIT_FAILURE;
 }
@@ -944,21 +984,6 @@ DWORD DHCPRawClient::DhcpReceiver()
 		goto cleanup;
 	}
 
-	//if (m_gRelayMode == FALSE)
-	//{
-	//	if (setsockopt(RcvSocket, SOL_SOCKET, SO_BROADCAST, (char*)&optval, sizeof(optval)) == SOCKET_ERROR) {
-	//		printf("DHCPRawClient::Receive(): Error setsockopt() call failed : %d\n", WSAGetLastError());
-	//		goto cleanup;
-	//	}
-	//}
-	//else
-	//{
-	//	if (setsockopt(RcvSocket, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, (char*)&optval, sizeof(optval)) == SOCKET_ERROR) {
-	//		printf("DHCPRawClient::Receive(): Error setsockopt() call failed : %d\n", WSAGetLastError());
-	//		goto cleanup;
-	//	}
-	//}
-
 
 	//-------------------------
 	// Set the socket I/O mode: In this case FIONBIO
@@ -969,8 +994,6 @@ DWORD DHCPRawClient::DhcpReceiver()
 	iResult = ioctlsocket(RcvSocket, FIONBIO, 0);
 	if (iResult != NO_ERROR)
 		printf("DHCPRawClient::Receive(): ioctlsocket failed with error: %ld\n", iResult);
-
-
 
 	//----------------------
 	// Bind the socket.
@@ -988,7 +1011,6 @@ DWORD DHCPRawClient::DhcpReceiver()
 		goto cleanup; 
 	}
 	
-
 	//while (!bEndOfProgram)
 	for (;;) 
 	{
@@ -1028,7 +1050,7 @@ DWORD DHCPRawClient::DhcpReceiver()
 
 			if (NewDhcpPacket(pDhcpReply) == EXIT_FAILURE)
 			{
-				printf("DHCPRawClient::Receive():  error creating DHCP reply envelop\n");
+				printf("DHCPRawClient::Receive():  error creating DHCP reply envelope\n");
 				break;
 			}
 			memcpy(pDhcpReply->m_pDhcpMsg, RecvBuff, sizeof(DHCPv4_HDR));;
@@ -1076,7 +1098,6 @@ DWORD DHCPRawClient::DhcpReceiver()
 				pDhcpReply->m_iSizeOpt = 0;
 				pDhcpReply->m_iNbrOpt = 0;
 			}
-
 
 			iResult = WSAGetLastError(); // iResult turns 10057
 											//Which means the socket isnt connected

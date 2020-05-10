@@ -41,9 +41,8 @@
 #include <unordered_set>
 #include <sstream>
 #include <ctime>
-#include <cpprest/json.h>
 
-#pragma comment(lib, "IPHLPAPI.lib")
+#pragma comment(lib,"IPHLPAPI.lib")
 #pragma comment(lib,"ws2_32.lib") //winsock 2.2 library
 #pragma comment(lib,"winmm.lib")
 #pragma comment(lib,"Kernel32.lib")
@@ -121,6 +120,7 @@ typedef struct _DHCP_LEASE {
 	pDHCP_PACKET m_pDhcpPacketAck; //The ACK Received associated to the lease
 	time_t m_T1; //m_pDhcpPacketAck->m_ltime + lease_time/2
 	time_t m_T2; //m_pDhcpPacketAck->m_ltime + lease_time * (87.5/100)
+	time_t m_TEnd; //End of Lease
 	int m_iClientID;
 }DHCP_LEASE, * pDHCP_LEASE;
 
@@ -167,7 +167,7 @@ namespace DHCPRaw
 		{
 			;
 		}
-		DHCPRawLease(pDHCP_PACKET& pDhcpAck, int ClientId);
+		DHCPRawLease(pDHCP_PACKET& pDhcpAck, pDHCP_PACKET& pDhcpRequest, int ClientId);
 		/////////////////////
 		/// Methods
 		/////////////////////
@@ -179,14 +179,14 @@ namespace DHCPRaw
 		/////////////////////
 		/// attributes
 		/////////////////////	
-		pDHCP_LEASE m_pDhcpLease	= NULL;
+		pDHCP_LEASE m_pDhcpLease				= NULL;
 		char m_LocalAddrIp[INET_ADDRSTRLEN]		= { 0 };
 		char m_ServerAddrIp[INET_ADDRSTRLEN]	= { 0 };
 
 		/////////////////////
 		/// Methods
 		/////////////////////
-		void SetLease(pDHCP_PACKET& pDhcpAck, int ClientId);
+		void SetLease(pDHCP_PACKET& pDhcpAck, pDHCP_PACKET& pDhcpRequest, int ClientId);
 		void DeleteLease();
 	};
 
