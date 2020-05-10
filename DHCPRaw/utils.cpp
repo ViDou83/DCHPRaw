@@ -106,6 +106,22 @@ USHORT build_option_61(PUCHAR MacAddr, PDHCP_OPT DhcpOpt)
 }
 
 /*
+* Builds DHCP option61 on dhopt_buff
+*/
+USHORT build_dhcp_option(BYTE OptionType, BYTE OptionLength, PBYTE OptionValue, PDHCP_OPT pDhcpOpt)
+{
+
+	pDhcpOpt->OptionType = OptionType;
+	pDhcpOpt->OptionLength = OptionLength;
+	pDhcpOpt->OptionValue = (PBYTE)malloc(sizeof(BYTE) * pDhcpOpt->OptionLength);
+	//ULONG to BYTE
+	for (int i = 0; i < pDhcpOpt->OptionLength; i++)
+		pDhcpOpt->OptionValue[i] = OptionValue[i];
+
+	return pDhcpOpt->OptionLength + 2;
+}
+
+/*
 * Builds DHCP option81 on dhopt_buff
 see https://technet.microsoft.com/en-us/library/cc959284.aspx
 */

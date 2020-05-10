@@ -41,6 +41,7 @@
 #include <unordered_set>
 #include <sstream>
 #include <ctime>
+#include <cpprest/json.h>
 
 #pragma comment(lib, "IPHLPAPI.lib")
 #pragma comment(lib,"ws2_32.lib") //winsock 2.2 library

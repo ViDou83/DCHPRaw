@@ -14,8 +14,10 @@ CRITICAL_SECTION g_CS[DHCP_REPLY];
 HANDLE g_hSocketWaitEvent;
 HANDLE g_hDiscoverReadyWaitEvent;
 bool g_DhcpReceiverAlone = false;
+bool g_pDhcpCustomOpt = false;
 
 using namespace DHCPRaw;
+using namespace web;
 
 /* Helper */
 void Help() 
@@ -94,6 +96,11 @@ int main(int argc, char* argv[])
 		else if (strcmp(argv[i], "-s") == 0)
 		{
 			bIsRealyOn = true;
+			SrvAddr = argv[i + 1];
+		}
+		else if (strcmp(argv[i], "-opt") == 0)
+		{
+			g_pDhcpCustomOpt = true;
 			SrvAddr = argv[i + 1];
 		}
 	}
