@@ -390,7 +390,7 @@ DWORD GetAdapterMacByIndex(int IfIndex, BYTE (&MAC)[ETHER_ADDR_LEN])
 }
 
 /**/
-DWORD GetAdaptersInfo() 
+DWORD ListAllAdapters() 
 {
 	PIP_ADAPTER_INFO pAdapterInfo;
 	PIP_ADAPTER_INFO pAdapter = NULL;

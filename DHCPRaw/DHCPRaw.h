@@ -1,4 +1,4 @@
-// DHCPRaw.h
+// DHCPRaw.h7
 #pragma once
 
 #ifdef _DEBUG
@@ -149,6 +149,7 @@ USHORT build_option_55(BYTE ParameterRequestList[], PDHCP_OPT DhcpOpt);
 USHORT build_option_81(char* FQDN, PDHCP_OPT DhcpOpt);
 USHORT build_option_61(PUCHAR MacAddr, PDHCP_OPT DhcpOpt);
 bool IsIPv4AddrPlumbebOnAdapter(int IfIndex, char* IPv4);
+DWORD ListAllAdapters();
 DWORD MyEcho(char* IpAddr);
 LARGE_INTEGER UnixTimeToFileTime(time_t t);
 
@@ -214,6 +215,7 @@ namespace DHCPRaw
 			pIPv4_HDR		get_pIPv4hdr();
 			pUDPv4_HDR		get_pUDPv4hdr();
 			pDHCPv4_HDR		get_pDhcpMsg();
+			//PDHCP_OPT*		get_pDhcpOpts();
 
 		private:
 			/////////////////////
@@ -229,7 +231,7 @@ namespace DHCPRaw
 			/////////////////////
 			// Create pIPV4 and UDPv4 hearder
 			DWORD SetDhcpMessage(BYTE dhcp_opcode, BYTE dhcp_flags, ULONG dhcp_gip, BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN]);
-
+			
 
 	};
 
@@ -248,11 +250,11 @@ namespace DHCPRaw
 				;
 			}
 			//Regular DHCPRawClient Objects
-			DHCPRawClient(int number, int ifindex, char* ClientPrefixName);
+			DHCPRawClient(int number, int ifindex, char* ClientPrefixName, std::vector<string> StrCustomOpt);
 			//Sender DHCPRawClient Objects
 			DHCPRawClient(int number, bool isReceiver, bool bIsRealyOn);
 			//Relay  DHCPRawClient Objects
-			DHCPRawClient(int number, int ifindex, char* ClientPrefixName, bool isRelayOn, char* RelayAddr, char* SrvAddr);
+			DHCPRawClient(int number, int ifindex, char* ClientPrefixName, std::vector<string> StrCustomOpt, bool isRelayOn, char* RelayAddr, char* SrvAddr);
 			/////////////////////
 			/// Methods
 			/////////////////////
@@ -276,6 +278,7 @@ namespace DHCPRaw
 			char*	m_SrvAddr = NULL;
 			char*	m_ClientNamePrefix = NULL;
 			HANDLE	m_hTimer = NULL;
+			int		m_numberOfCustomOpts = 0;
 
 			DHCPRawPacket	m_DhcpRawPacket;
 			DHCPRawLease	m_DhcpRawLease;
@@ -284,7 +287,7 @@ namespace DHCPRaw
 			pDHCP_PACKET	m_pDhcpOffer	= NULL;
 			pDHCP_PACKET	m_pDhcpAck		= NULL;
 			pDHCP_LEASE		m_pDhcpLease	= NULL;
-
+			PDHCP_OPT* m_pCustomDhcpOpts    = NULL;
 			/////////////////////
 			/// Methods
 			/////////////////////
@@ -305,6 +308,7 @@ namespace DHCPRaw
 			DWORD build_dhpc_request();
 			//
 			int getClientNumber();
+			void ConvertStrOptToDhpOpt(std::vector<string> StrCustomOpt);
 
 			//Static method needed to run thread... Need to explore C++11 threading support
 			static DWORD WINAPI ThreadEntryPoint(LPVOID lpParameter)

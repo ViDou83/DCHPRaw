@@ -5,6 +5,7 @@
 DhcpMsgQ DHCPOutstandingMsgQ[DHCP_REPLY];
 bool g_bRelayMode = false;
 
+
 namespace DHCPRaw
 {
 	using namespace std;
@@ -352,7 +353,7 @@ void DHCPRawLease::print()
 /////////////////////////////
 
 //DHCPRawClient regular mode (BROADCAST)
-DHCPRawClient::DHCPRawClient(int number, int ifindex,char* ClientPrefixName)
+DHCPRawClient::DHCPRawClient(int number, int ifindex,char* ClientPrefixName, std::vector<string> StrCustomOpt)
 {
 	DEBUG_PRINT("-->DHCPRawClient::DHCPRawClient() Construtor\n");
 
@@ -378,6 +379,8 @@ DHCPRawClient::DHCPRawClient(int number, int ifindex,char* ClientPrefixName)
 	{
 		printf(" DHCPRawLease::DHCPRawLeaseCreateWaitableTimer failed (%d)\n", GetLastError());
 	}
+
+	ConvertStrOptToDhpOpt(StrCustomOpt);
 	
 	DEBUG_PRINT("<--DHCPRawClient::DHCPRawClient() Construtor  m_ClientNumber:%d m_IfIndex:%d m_ClientNamePrefix:%s\n",
 		m_ClientNumber, m_IfIndex, m_ClientNamePrefix);
@@ -385,7 +388,8 @@ DHCPRawClient::DHCPRawClient(int number, int ifindex,char* ClientPrefixName)
 }
 
 //DHCPRawClient regular mode (RELAY)
-DHCPRawClient::DHCPRawClient(int number, int ifindex, char* ClientPrefixName, bool isRelayOn, char* RelayAddr,char *SrvAddr)
+DHCPRawClient::DHCPRawClient(int number, int ifindex, char* ClientPrefixName, std::vector<string> StrCustomOpt, 
+	bool isRelayOn, char* RelayAddr,char *SrvAddr)
 {
 	//Attributes
 	//m_IsReceiver = isReceiver;
@@ -412,6 +416,9 @@ DHCPRawClient::DHCPRawClient(int number, int ifindex, char* ClientPrefixName, bo
 	{
 		printf(" DHCPRawLease::DHCPRawLeaseCreateWaitableTimer failed (%d)\n", GetLastError());
 	}
+
+	ConvertStrOptToDhpOpt(StrCustomOpt);
+
 	//this->print();
 }
 
@@ -457,6 +464,67 @@ void DHCPRawClient::print()
 int DHCPRawClient::getClientNumber()
 {
 	return m_ClientNumber;
+}
+
+void DHCPRawClient::ConvertStrOptToDhpOpt(std::vector<string> StrCustomOpt)
+{
+	DEBUG_PRINT("-->DHCPRawClient::ConvertStrOptToDhpOpt()\n");
+
+	int CptOpt = 0;
+	int tmp = 0;
+	int index = 0;
+
+	while (index < StrCustomOpt.size())
+	{
+		//sscanf(StrCustomOpt[index].c_str(), "%X", &hexNumber);
+		index++;
+		index += strtoul(StrCustomOpt[index].c_str(), 0, 16);
+		index ++;
+		m_numberOfCustomOpts++;
+	}
+	cout << index << endl;
+	m_pCustomDhcpOpts = (PDHCP_OPT*)malloc(sizeof(PDHCP_OPT) * m_numberOfCustomOpts);
+
+	for (int i = 0; i < m_numberOfCustomOpts; i++)
+		m_pCustomDhcpOpts[i] = (PDHCP_OPT)malloc(sizeof(DHCP_OPT));
+
+	index = 0;
+
+	//for (int i = 0; i < StrCustomOpt.size(); i ++)
+	while (index < StrCustomOpt.size())
+	{
+		//sscanf(StrCustomOpt[index].c_str(), "%X", &hexNumber);
+		m_pCustomDhcpOpts[CptOpt]->OptionType = strtoul(StrCustomOpt[index].c_str(), 0, 16);
+		index++;
+
+		m_pCustomDhcpOpts[CptOpt]->OptionLength = strtoul(StrCustomOpt[index].c_str(), 0, 16);
+		index++;
+
+		if (index + m_pCustomDhcpOpts[CptOpt]->OptionLength > StrCustomOpt.size())
+			break;
+
+		m_pCustomDhcpOpts[CptOpt]->OptionValue = (PBYTE)malloc(sizeof(BYTE) * m_pCustomDhcpOpts[CptOpt]->OptionLength);
+		// range based for loop does not print '\n'
+		for (int i = 0; i < m_pCustomDhcpOpts[CptOpt]->OptionLength; i++)
+		{
+			m_pCustomDhcpOpts[CptOpt]->OptionValue[i] = strtoul(StrCustomOpt[index].c_str(), 0, 16);;
+			index++;
+		}
+		index += m_pCustomDhcpOpts[CptOpt]->OptionLength + 2;
+
+		CptOpt++;
+	}
+	
+	for (int i = 0; i < m_numberOfCustomOpts; i++)
+	{
+		printf("OptionType=%X\nOptionLength=%X\nOptionValue=", m_pCustomDhcpOpts[i]->OptionType, m_pCustomDhcpOpts[i]->OptionLength);
+		for (int j = 0; j < m_pCustomDhcpOpts[i]->OptionLength; j++)
+			printf("%X\n", m_pCustomDhcpOpts[i]->OptionValue[j]);
+	}
+
+	Sleep(10);
+
+	DEBUG_PRINT("<--DHCPRawClient::ConvertStrOptToDhpOpt()\n");
 }
 
 DWORD DHCPRawClient::setMAC()
@@ -795,8 +863,11 @@ DWORD DHCPRawClient::build_dhpc_request()
 	if (DhcpPacket == NULL)
 		return EXIT_FAILURE;
 
-	//Allocate space  DhcpOptions
+	//Custom DHCP opts
+	if (m_numberOfCustomOpts > 0)
+		iNbrOpt += m_numberOfCustomOpts;
 
+	//Allocate space  DhcpOptions
 	DhcpPacket->m_ppDhcpOpt = (PDHCP_OPT*)malloc(sizeof(PDHCP_OPT) * iNbrOpt);
 	for (int i = 0; i < iNbrOpt; i++)
 		DhcpPacket->m_ppDhcpOpt[i] = (PDHCP_OPT)malloc(sizeof(DHCP_OPT));
@@ -864,6 +935,23 @@ DWORD DHCPRawClient::build_dhpc_request()
 		if (m_pDhcpReply->m_pDhcpMsg->dhcp_sip > 0)
 		{
 			iDhcpOptSize += build_option50_54(DHCP_SERVIDENT, htonl(m_pDhcpReply->m_pDhcpMsg->dhcp_sip), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
+			iDhcpOpt++;
+		}
+	}
+
+	if (m_numberOfCustomOpts > 0) 
+	{
+		DEBUG_PRINT("Custom option(s) detected\n");
+		for (int i = 0; i < m_numberOfCustomOpts; i++)
+		{
+
+			DhcpPacket->m_ppDhcpOpt[iDhcpOpt]->OptionType = m_pCustomDhcpOpts[i]->OptionType;
+			DhcpPacket->m_ppDhcpOpt[iDhcpOpt]->OptionLength = m_pCustomDhcpOpts[i]->OptionLength;
+
+			DhcpPacket->m_ppDhcpOpt[iDhcpOpt]->OptionValue = (PBYTE)malloc(sizeof(BYTE)*m_pCustomDhcpOpts[i]->OptionLength);
+
+			memcpy(DhcpPacket->m_ppDhcpOpt[iDhcpOpt]->OptionValue, m_pCustomDhcpOpts[i]->OptionValue, sizeof(BYTE)*m_pCustomDhcpOpts[i]->OptionLength);
+			iDhcpOptSize += m_pCustomDhcpOpts[i]->OptionLength + 2;
 			iDhcpOpt++;
 		}
 	}

@@ -44,13 +44,14 @@ int main(int argc, char* argv[])
 	char* RelayAddr = NULL;
 	char* SrvAddr = NULL;
 	bool bIsRealyOn = false;
+	
 
 	/* Variables where handles to the added IP are returned */
-	ULONG NTEContext = 0;
-	ULONG NTEInstance = 0;
-	DWORD dwRetVal = 0;
-
-
+	ULONG NTEContext	= 0;
+	ULONG NTEInstance	= 0;
+	DWORD dwRetVal		= 0;
+	std::vector<string> StrCustomOpt;
+ 
 	/* Checking args number */
 	if (argc < 2)
 	{
@@ -58,8 +59,8 @@ int main(int argc, char* argv[])
 		return EXIT_SUCCESS;
 	}
 
-	/* Checking is we are on server SKU
-	if (!IsWindowsServer())
+	// Checking is we are on server SKU
+	/*if (!IsWindowsServer())
 	{
 		cout << "###############################################################################################################" << endl;
 		cout << "#\t\t\t\t\t\t\t\t\t\t\t\t\t\t#" << endl;
@@ -78,8 +79,7 @@ int main(int argc, char* argv[])
 		Help();
 
 		return EXIT_SUCCESS;
-	}
-	*/
+	}*/
 
 	for (int i = 0; i < argc; i++)
 	{
@@ -100,17 +100,32 @@ int main(int argc, char* argv[])
 		else if (strcmp(argv[i], "-opt") == 0)
 		{
 			g_pDhcpCustomOpt = true;
-			SrvAddr = argv[i + 1];
+			char *line = argv[i + 1];
+			char *pch = strtok(line, ",;:/");
+			while (pch != NULL)
+			{
+				StrCustomOpt.push_back(pch);
+				pch = strtok(NULL, ",;:/");
+			}
+			
+		}
+		else if (strcmp(argv[i], "-d") == 0)
+		{
+			cout << "----------------------------------------------------------------" << endl;
+			cout << "Please see all Ethernet active adpaters on the system:" << endl;
+			cout << "----------------------------------------------------------------" << endl;
+			ListAllAdapters();
+			return EXIT_SUCCESS;
 		}
 	}
 
 	//Exit if no TCPIP adapter has been provided
 	if (!IfIndex) {
-		printf("----------------------------------------------------------------\n");
-		printf("Error: Please specify one interface Index where to send out DHCP messages\n");
-		printf("----------------------------------------------------------------\n\n");
+		cout << "----------------------------------------------------------------" << endl;
+		cout << "Error: Please specify one interface Index where to send out DHCP messages" << endl;
+		cout << "----------------------------------------------------------------" << endl;
 		Help();
-		printf("----------------------------------------------------------------\n");
+		cout << "----------------------------------------------------------------" << endl;
 		//GetAdaptersInfo();
 		return EXIT_FAILURE;
 	}
@@ -195,9 +210,9 @@ int main(int argc, char* argv[])
 	for (int i = 0; i < NbrLeases; i++)
 	{
 		if(bIsRealyOn)
-			DHCPClients[i] = DHCPRawClient(i, IfIndex,(char*)"DHCPRAW", bIsRealyOn,RelayAddr,SrvAddr);
+			DHCPClients[i] = DHCPRawClient(i, IfIndex,(char*)"DHCPRAW", StrCustomOpt, bIsRealyOn,RelayAddr,SrvAddr);
 		else
-			DHCPClients[i] = DHCPRawClient(i, IfIndex, (char*)"DHCPRAW");
+			DHCPClients[i] = DHCPRawClient(i, IfIndex, (char*)"DHCPRAW",StrCustomOpt);
 		hWorkerThread[i] = DHCPClients[i].Run();
 	}
 
