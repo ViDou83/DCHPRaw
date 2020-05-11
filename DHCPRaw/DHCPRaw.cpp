@@ -354,6 +354,8 @@ void DHCPRawLease::print()
 //DHCPRawClient regular mode (BROADCAST)
 DHCPRawClient::DHCPRawClient(int number, int ifindex,char* ClientPrefixName)
 {
+	DEBUG_PRINT("-->DHCPRawClient::DHCPRawClient() Construtor\n");
+
 	//Attributes
 	//m_IsReceiver = isReceiver;
 	//If not DHCP SenderReceiver
@@ -362,8 +364,8 @@ DHCPRawClient::DHCPRawClient(int number, int ifindex,char* ClientPrefixName)
 	m_pDhcpOffer = m_pDhcpAck = m_pDhcpRequest = NULL;
 	m_pDhcpLease = NULL;
 
-	m_ClientNamePrefix = (char*)malloc(strlen(ClientPrefixName)* sizeof(char));
-	memcpy(m_ClientNamePrefix, ClientPrefixName, strlen(ClientPrefixName) * sizeof(char));
+	m_ClientNamePrefix = (char*)malloc( ( strlen(ClientPrefixName) + 1 )* sizeof(char) );
+	memcpy(m_ClientNamePrefix, ClientPrefixName, (strlen(ClientPrefixName) + 1) * sizeof(char));
 
 	// setMAc from adapter with ifIndex = m_IfIndex;
 	if (setMAC() == EXIT_FAILURE) { cout << "Cannot get MAC address from ifIndex:" << m_IfIndex << endl; }
@@ -376,6 +378,9 @@ DHCPRawClient::DHCPRawClient(int number, int ifindex,char* ClientPrefixName)
 	{
 		printf(" DHCPRawLease::DHCPRawLeaseCreateWaitableTimer failed (%d)\n", GetLastError());
 	}
+	
+	DEBUG_PRINT("<--DHCPRawClient::DHCPRawClient() Construtor  m_ClientNumber:%d m_IfIndex:%d m_ClientNamePrefix:%s\n",
+		m_ClientNumber, m_IfIndex, m_ClientNamePrefix);
 
 }
 
@@ -390,8 +395,8 @@ DHCPRawClient::DHCPRawClient(int number, int ifindex, char* ClientPrefixName, bo
 	m_pDhcpOffer = m_pDhcpAck = m_pDhcpRequest = NULL;
 	m_pDhcpLease = NULL;
 
-	m_ClientNamePrefix = (char*)malloc(strlen(ClientPrefixName) * sizeof(char));
-	memcpy(m_ClientNamePrefix, ClientPrefixName, strlen(ClientPrefixName) * sizeof(char));
+	m_ClientNamePrefix = (char*)malloc((strlen(ClientPrefixName) + 1) * sizeof(char));
+	memcpy(m_ClientNamePrefix, ClientPrefixName, (strlen(ClientPrefixName) + 1) * sizeof(char));
 
 	// setMAc from adapter with ifIndex = m_IfIndex;
 	if (setMAC() == EXIT_FAILURE) { cout << "Cannot get MAC address from ifIndex:" << m_IfIndex << endl; }
@@ -850,6 +855,7 @@ DWORD DHCPRawClient::build_dhpc_request()
 		iDhcpOpt++;
 
 		sprintf(pcClientFQDN, "%s%d.%s", m_ClientNamePrefix, m_pDhcpReply->m_pDhcpMsg->dhcp_chaddr[5], pchDomainName);
+		DEBUG_PRINT("OPTION81: %s\n", pcClientFQDN);
 
 		iDhcpOptSize += build_option_81(pcClientFQDN, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
 		iDhcpOpt++;
@@ -863,6 +869,9 @@ DWORD DHCPRawClient::build_dhpc_request()
 	}
 		
 	DhcpPacket->m_pDhcpMsg->dhcp_sip = 0;
+	//Relay mode 
+	DhcpPacket->m_pDhcpMsg->dhcp_gip = m_gRelayMode == TRUE ? inet_addr(m_RelayAddr) : 0;
+
 	DhcpPacket->m_iSizeOpt = iDhcpOptSize;
 	DhcpPacket->m_iNbrOpt = iNbrOpt;
 	DhcpPacket->m_ltime = 0;
@@ -930,7 +939,7 @@ HANDLE DHCPRawClient::Run()
 */
 DWORD DHCPRawClient::DhcpReceiver()
 {
-	DEBUG_PRINT("--> DHCPRawClient::Receiver()\n");
+	DEBUG_PRINT("--> DHCPRawClient::DhcpReceiver()\n");
 
 	int iResult = 0;
 	int i = 0;
@@ -944,8 +953,10 @@ DWORD DHCPRawClient::DhcpReceiver()
 
 	//	DWORD dwWaitResult;
 	pDHCP_PACKET pDhcpReply = NULL;
-	BYTE DhcpMsgType = 0;
-	USHORT DhcpOptSize = 0;
+	//BYTE DhcpMsgType = 0;
+	//USHORT DhcpOptSize = 0;
+	USHORT cpt;
+	USHORT nbrOpt;
 
 	SOCKET RcvSocket = NULL;
 	SOCKADDR_STORAGE rcvfrom;
@@ -958,7 +969,7 @@ DWORD DHCPRawClient::DhcpReceiver()
 	iResult = WSAStartup(MAKEWORD(2, 0), &wsaData);
 	if (iResult != 0)
 	{
-		printf("DHCPRawClient::Receive(): Error WSAStartup() call failed: %d\n", WSAGetLastError());
+		printf("DHCPRawClient::DhcpReceiver(): Error WSAStartup() call failed: %d\n", WSAGetLastError());
 		goto cleanup;
 	}
 
@@ -971,16 +982,19 @@ DWORD DHCPRawClient::DhcpReceiver()
 	RcvSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (RcvSocket == INVALID_SOCKET) 
 	{
-		printf("DHCPRawClient::Receive(): Error socket() call failed: %d\n", WSAGetLastError());
+		printf("DHCPRawClient::DhcpReceiver(): Error socket() call failed: %d\n", WSAGetLastError());
 		goto cleanup;
 	}
 
 
-	optname = m_gRelayMode == TRUE ? SO_BROADCAST : SO_EXCLUSIVEADDRUSE;
+	optname = m_gRelayMode == TRUE ? SO_EXCLUSIVEADDRUSE : SO_BROADCAST;
+
+	DEBUG_PRINT("DHCPRawClient::DhcpReceiver() RelayMode=%d\n",m_gRelayMode);
+
 	//Set SO_EXCLUSIVEADDRUSE in case of Relay mode
 	iResult = setsockopt(RcvSocket, SOL_SOCKET, optname, (char*)&optval, sizeof(optval));
 	if (iResult  == SOCKET_ERROR) {
-		printf("DHCPRawClient::Receive(): Error setsockopt() call failed : %d\n", WSAGetLastError());
+		printf("DHCPRawClient::DhcpReceiver(): Error setsockopt() call failed : %d\n", WSAGetLastError());
 		goto cleanup;
 	}
 
@@ -991,23 +1005,23 @@ DWORD DHCPRawClient::DhcpReceiver()
 	// socket based on the numerical value of iMode.
 	// If iMode = 0, blocking is enabled; 
 	// If iMode != 0, non-blocking mode is enabled.
-	iResult = ioctlsocket(RcvSocket, FIONBIO, 0);
+	/*iResult = ioctlsocket(RcvSocket, FIONBIO, 0);
 	if (iResult != NO_ERROR)
-		printf("DHCPRawClient::Receive(): ioctlsocket failed with error: %ld\n", iResult);
+		printf("DHCPRawClient::Receive(): ioctlsocket failed with error: %ld\n", iResult);*/
 
 	//----------------------
 	// Bind the socket.
 	iResult = bind(RcvSocket, (SOCKADDR*)&rcvfrom, sizeof(rcvfrom));
 	if (iResult == SOCKET_ERROR)
 	{
-		printf("DHCPRawClient::Receive(): Error bind() call failed : %d\n", WSAGetLastError());
+		printf("DHCPRawClient::DhcpReceiver(): Error bind() call failed : %d\n", WSAGetLastError());
 		goto cleanup;
 	}
 
 	//Sets the g_hSocketWaitEvent to wake up DHCP Clients threads... We are ready to receive...
 	if (!SetEvent(g_hSocketWaitEvent))
 	{
-		printf("DHCPRawClient::Receive(): SetEvent failed (%d)\n", GetLastError());
+		printf("DHCPRawClient::DhcpReceiver(): SetEvent failed (%d)\n", GetLastError());
 		goto cleanup; 
 	}
 	
@@ -1022,7 +1036,7 @@ DWORD DHCPRawClient::DhcpReceiver()
 		FD_ZERO(&readfs);      /* clears readfs */
 		FD_SET(RcvSocket, &readfs); /* adds a stream */
 
-		DEBUG_PRINT("DHCPRawClient::Receive(): Waiting on select()....\n");
+		DEBUG_PRINT("DHCPRawClient::DhcpReceiver(): Waiting on select()....\n");
 		iResult = select((int)RcvSocket, &readfs, NULL, NULL, &timeout);
 
 		switch (iResult)
@@ -1031,12 +1045,12 @@ DWORD DHCPRawClient::DhcpReceiver()
 			//if all DHCP clients are exited, then exit as well
 			if ( g_DhcpReceiverAlone )
 			{
-				printf("DHCPRawClient::Receive():  select() TimeOut End of program\n");
+				printf("DHCPRawClient::DhcpReceiver():  select() TimeOut End of program\n");
 				goto cleanup;
 			}
 			break;
 		case SOCKET_ERROR:
-			printf("DHCPRawClient::Receive():  select() failed\n");
+			printf("DHCPRawClient::DhcpReceiver():  select() failed\n");
 			break;
 			//else ready to read
 		}
@@ -1050,17 +1064,17 @@ DWORD DHCPRawClient::DhcpReceiver()
 
 			if (NewDhcpPacket(pDhcpReply) == EXIT_FAILURE)
 			{
-				printf("DHCPRawClient::Receive():  error creating DHCP reply envelope\n");
+				printf("DHCPRawClient::DhcpReceiver():  error creating DHCP reply envelope\n");
 				break;
 			}
 			memcpy(pDhcpReply->m_pDhcpMsg, RecvBuff, sizeof(DHCPv4_HDR));;
 
 			if (recvbytes >= DHCP_MIN_PACKET_SIZE)
 			{
-				DEBUG_PRINT("DHCPRawClient::Receive(): DhcpMsg Received Bytes=%d\n", recvbytes);
+				DEBUG_PRINT("DHCPRawClient::DhcpReceiver(): DhcpMsg Received Bytes=%d\n", recvbytes);
 
-				USHORT cpt = DHCPv4_H;
-				USHORT nbrOpt = 0;
+				cpt = DHCPv4_H;
+				nbrOpt = 0;
 				while (cpt < recvbytes - 1)
 				{
 					cpt += (2 + RecvBuff[cpt + 1]);
@@ -1082,7 +1096,7 @@ DWORD DHCPRawClient::DhcpReceiver()
 					cpt += (2 + RecvBuff[cpt + 1]);
 				}
 				pDhcpReply->m_iNbrOpt = nbrOpt;
-				DhcpMsgType = (BYTE)pDhcpReply->m_ppDhcpOpt[0]->OptionValue[0];
+				//DhcpMsgType = (BYTE)pDhcpReply->m_ppDhcpOpt[0]->OptionValue[0];
 
 				//DhcpReply->m_pNext = NULL;
 
@@ -1095,20 +1109,23 @@ DWORD DHCPRawClient::DhcpReceiver()
 			}
 			else
 			{
-				pDhcpReply->m_iSizeOpt = 0;
-				pDhcpReply->m_iNbrOpt = 0;
+				/*pDhcpReply->m_iSizeOpt = 0;
+				pDhcpReply->m_iNbrOpt = 0;*/
+				free(pDhcpReply);
 			}
 
 			iResult = WSAGetLastError(); // iResult turns 10057
 											//Which means the socket isnt connected
 
-			ZeroMemory(RecvBuff, sizeof(char) * DHCP_MAX_PACKET_SIZE);
+			recvbytes = recvbytes > DHCP_MAX_PACKET_SIZE ? recvbytes : DHCP_MAX_PACKET_SIZE;
+
+			ZeroMemory(RecvBuff, sizeof(char) * recvbytes);
 		}
 	}
 
 	if (closesocket(RcvSocket) == SOCKET_ERROR) 
 	{
-		printf("DHCPRawClient::Receive(): Error closesocket() call failed : %d\n", WSAGetLastError());
+		printf("DHCPRawClient::DhcpReceiver(): Error closesocket() call failed : %d\n", WSAGetLastError());
 		goto cleanup;
 	}
 
@@ -1116,6 +1133,10 @@ DWORD DHCPRawClient::DhcpReceiver()
 
 cleanup:
 	closesocket(RcvSocket);
+
+	free(RecvBuff);
+	free(pDhcpReply);
+
 	WSACleanup();
 	DEBUG_PRINT("<-- DHCPRawClient::Receive()\n");
 

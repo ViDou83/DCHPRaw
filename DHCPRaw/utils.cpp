@@ -277,14 +277,17 @@ bool IsIPv4AddrPlumbebOnAdapter(int IfIndex, char* IPv4) {
 				PIP_ADDR_STRING  pIpAddrString = &pAdapter->IpAddressList;
 				do {
 					if (strcmp(pIpAddrString->IpAddress.String, IPv4) == 0)
+					{
+						DEBUG_PRINT("<-- IsIPv4AddrPlumbebOnAdapter() %s Found\n", IPv4);
 						return true;
+					}
 					pIpAddrString = pIpAddrString->Next;
 				} while (pIpAddrString != NULL);
 			}
 			pAdapter = pAdapter->Next;
 		}
 	}
-	DEBUG_PRINT("<-- IsIPv4AddrPlumbebOnAdapter()\n");
+	DEBUG_PRINT("<-- IsIPv4AddrPlumbebOnAdapter() Not Found\n");
 
 	return false;
 }
