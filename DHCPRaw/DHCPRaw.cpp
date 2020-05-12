@@ -482,47 +482,55 @@ void DHCPRawClient::ConvertStrOptToDhpOpt(std::vector<string> StrCustomOpt)
 		index ++;
 		m_numberOfCustomOpts++;
 	}
-	cout << index << endl;
-	m_pCustomDhcpOpts = (PDHCP_OPT*)malloc(sizeof(PDHCP_OPT) * m_numberOfCustomOpts);
 
-	for (int i = 0; i < m_numberOfCustomOpts; i++)
-		m_pCustomDhcpOpts[i] = (PDHCP_OPT)malloc(sizeof(DHCP_OPT));
+	//m_pCustomDhcpOpts = (PDHCP_OPT*)malloc(sizeof(PDHCP_OPT) * m_numberOfCustomOpts);
+
+	/*for (int i = 0; i < m_numberOfCustomOpts; i++)
+		m_pCustomDhcpOpts[i] = (PDHCP_OPT)malloc(sizeof(DHCP_OPT));*/
 
 	index = 0;
 
 	//for (int i = 0; i < StrCustomOpt.size(); i ++)
-	while (index < StrCustomOpt.size())
+	while ( index < StrCustomOpt.size() )
 	{
+		PDHCP_OPT pDhcpOpt_Current = (PDHCP_OPT)malloc(sizeof(DHCP_OPT));
 		//sscanf(StrCustomOpt[index].c_str(), "%X", &hexNumber);
-		m_pCustomDhcpOpts[CptOpt]->OptionType = strtoul(StrCustomOpt[index].c_str(), 0, 16);
+		pDhcpOpt_Current->OptionType = strtoul(StrCustomOpt[index].c_str(), 0, 0);
 		index++;
 
-		m_pCustomDhcpOpts[CptOpt]->OptionLength = strtoul(StrCustomOpt[index].c_str(), 0, 16);
+		pDhcpOpt_Current->OptionLength = strtoul(StrCustomOpt[index].c_str(), 0, 0);
 		index++;
 
-		if (index + m_pCustomDhcpOpts[CptOpt]->OptionLength > StrCustomOpt.size())
+		if (index + pDhcpOpt_Current->OptionLength > StrCustomOpt.size())
 			break;
-
-		m_pCustomDhcpOpts[CptOpt]->OptionValue = (PBYTE)malloc(sizeof(BYTE) * m_pCustomDhcpOpts[CptOpt]->OptionLength);
+		
+		pDhcpOpt_Current->OptionValue = (PBYTE)malloc(sizeof(BYTE) * pDhcpOpt_Current->OptionLength);
 		// range based for loop does not print '\n'
-		for (int i = 0; i < m_pCustomDhcpOpts[CptOpt]->OptionLength; i++)
+		for (int i = 0; i < pDhcpOpt_Current->OptionLength; i++)
 		{
-			m_pCustomDhcpOpts[CptOpt]->OptionValue[i] = strtoul(StrCustomOpt[index].c_str(), 0, 16);;
+			pDhcpOpt_Current->OptionValue[i] = strtoul(StrCustomOpt[index].c_str(), 0, 0);;
 			index++;
 		}
-		index += m_pCustomDhcpOpts[CptOpt]->OptionLength + 2;
+		index += pDhcpOpt_Current->OptionLength + 2;
+
+
+		//Add opts to the list
+		m_pCustomDhcpOpts.push_back(pDhcpOpt_Current);
+
+#ifdef _DEBUG
+		PDHCP_OPT temp = NULL;
+		for (auto it = m_pCustomDhcpOpts.begin(); it != m_pCustomDhcpOpts.end(); it++)
+		{
+			temp = *it;
+			printf("OptionType=%X\nOptionLength=%X\nOptionValue=", temp->OptionType, temp->OptionLength);
+			for (int j = 0; j < temp->OptionLength; j++)
+				printf("%X\n", temp->OptionValue[j]);
+		}
+#endif // DEBUG
 
 		CptOpt++;
 	}
 	
-	for (int i = 0; i < m_numberOfCustomOpts; i++)
-	{
-		printf("OptionType=%X\nOptionLength=%X\nOptionValue=", m_pCustomDhcpOpts[i]->OptionType, m_pCustomDhcpOpts[i]->OptionLength);
-		for (int j = 0; j < m_pCustomDhcpOpts[i]->OptionLength; j++)
-			printf("%X\n", m_pCustomDhcpOpts[i]->OptionValue[j]);
-	}
-
-	Sleep(10);
 
 	DEBUG_PRINT("<--DHCPRawClient::ConvertStrOptToDhpOpt()\n");
 }
@@ -811,7 +819,8 @@ DWORD DHCPRawClient::build_dhpc_request()
 	BYTE rgb_ParameterRequestList[5] = { DHCP_SUBNETMASK, DHCP_BROADCASTADDR, DHCP_ROUTER, DHCP_DOMAINNAME, DHCP_DNS };
 
 	pDHCP_PACKET m_pDhcpReply = NULL;
-	
+	PDHCP_OPT pDhcpOpt_Current = NULL;
+
 	//this->m_DhcpRawMsg = DHCPRawPacket(this->m_MAC);
 	//pDHCP_PACKET DhcpPacket = (pDHCP_PACKET)malloc(sizeof(DHCP_PACKET));
 	DHCPRawPacket DHCPRawPacket = DHCPRawPacket::DHCPRawPacket(this->m_MAC);
@@ -942,16 +951,30 @@ DWORD DHCPRawClient::build_dhpc_request()
 	if (m_numberOfCustomOpts > 0) 
 	{
 		DEBUG_PRINT("Custom option(s) detected\n");
-		for (int i = 0; i < m_numberOfCustomOpts; i++)
+	//for (auto it = g1.begin(); it != g1.end(); it++)
+	//{
+
+	//	DhcpPacket->m_ppDhcpOpt[iDhcpOpt]->OptionType = m_pCustomDhcpOpts[i]->OptionType;
+	//	DhcpPacket->m_ppDhcpOpt[iDhcpOpt]->OptionLength = m_pCustomDhcpOpts[i]->OptionLength;
+
+	//	DhcpPacket->m_ppDhcpOpt[iDhcpOpt]->OptionValue = (PBYTE)malloc(sizeof(BYTE)*m_pCustomDhcpOpts[i]->OptionLength);
+
+	//	memcpy(DhcpPacket->m_ppDhcpOpt[iDhcpOpt]->OptionValue, m_pCustomDhcpOpts[i]->OptionValue, sizeof(BYTE)*m_pCustomDhcpOpts[i]->OptionLength);
+	//	iDhcpOptSize += m_pCustomDhcpOpts[i]->OptionLength + 2;
+	//	iDhcpOpt++;
+	//}
+	//	 
+		for (auto it = m_pCustomDhcpOpts.begin(); it != m_pCustomDhcpOpts.end(); it++)
 		{
+			pDhcpOpt_Current = *it;
 
-			DhcpPacket->m_ppDhcpOpt[iDhcpOpt]->OptionType = m_pCustomDhcpOpts[i]->OptionType;
-			DhcpPacket->m_ppDhcpOpt[iDhcpOpt]->OptionLength = m_pCustomDhcpOpts[i]->OptionLength;
+			DhcpPacket->m_ppDhcpOpt[iDhcpOpt]->OptionType = pDhcpOpt_Current->OptionType;
+			DhcpPacket->m_ppDhcpOpt[iDhcpOpt]->OptionLength = pDhcpOpt_Current->OptionLength;
 
-			DhcpPacket->m_ppDhcpOpt[iDhcpOpt]->OptionValue = (PBYTE)malloc(sizeof(BYTE)*m_pCustomDhcpOpts[i]->OptionLength);
+			DhcpPacket->m_ppDhcpOpt[iDhcpOpt]->OptionValue = (PBYTE)malloc(sizeof(BYTE) * pDhcpOpt_Current->OptionLength);
 
-			memcpy(DhcpPacket->m_ppDhcpOpt[iDhcpOpt]->OptionValue, m_pCustomDhcpOpts[i]->OptionValue, sizeof(BYTE)*m_pCustomDhcpOpts[i]->OptionLength);
-			iDhcpOptSize += m_pCustomDhcpOpts[i]->OptionLength + 2;
+			memcpy(DhcpPacket->m_ppDhcpOpt[iDhcpOpt]->OptionValue, pDhcpOpt_Current->OptionValue, sizeof(BYTE) * pDhcpOpt_Current->OptionLength);
+			iDhcpOptSize += pDhcpOpt_Current->OptionLength + 2;
 			iDhcpOpt++;
 		}
 	}

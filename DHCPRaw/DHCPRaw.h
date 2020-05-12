@@ -287,7 +287,7 @@ namespace DHCPRaw
 			pDHCP_PACKET	m_pDhcpOffer	= NULL;
 			pDHCP_PACKET	m_pDhcpAck		= NULL;
 			pDHCP_LEASE		m_pDhcpLease	= NULL;
-			PDHCP_OPT* m_pCustomDhcpOpts    = NULL;
+			std::vector<PDHCP_OPT> m_pCustomDhcpOpts;
 			/////////////////////
 			/// Methods
 			/////////////////////
