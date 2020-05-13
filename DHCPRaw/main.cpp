@@ -15,6 +15,7 @@ HANDLE g_hSocketWaitEvent;
 HANDLE g_hDiscoverReadyWaitEvent;
 bool g_DhcpReceiverAlone = false;
 bool g_pDhcpCustomOpt = false;
+bool g_DhcpAutoRelease = false;
 
 using namespace DHCPRaw;
 
@@ -83,21 +84,21 @@ int main(int argc, char* argv[])
 
 	for (int i = 0; i < argc; i++)
 	{
-		if (strcmp(argv[i], "-i") == 0)
+		if (strcmp(argv[i], "-i") == 0) //IfIndex
 			IfIndex = atoi(argv[i + 1]);
-		else if (strcmp(argv[i], "-n") == 0)
+		else if (strcmp(argv[i], "-n") == 0) // Number of leases aka DHCPClient threads
 			NbrLeases = atoi(argv[i + 1]);
-		else if (strcmp(argv[i], "-r") == 0)
+		else if (strcmp(argv[i], "-r") == 0) //Relay address to use 
 		{
 			bIsRealyOn = true;
 			RelayAddr = argv[i + 1];
 		}
-		else if (strcmp(argv[i], "-s") == 0)
+		else if (strcmp(argv[i], "-s") == 0) //Dhcp server address to send DHCP packets whith relay mode
 		{
 			bIsRealyOn = true;
 			SrvAddr = argv[i + 1];
 		}
-		else if (strcmp(argv[i], "-opt") == 0)
+		else if (strcmp(argv[i], "-opt") == 0) //DHCP custom opts
 		{
 			g_pDhcpCustomOpt = true;
 			char *line = argv[i + 1];
@@ -109,7 +110,11 @@ int main(int argc, char* argv[])
 			}
 			
 		}
-		else if (strcmp(argv[i], "-d") == 0)
+		else if (strcmp(argv[i], "-a") == 0) //auto DHCP Release
+		{
+			g_DhcpAutoRelease = true;
+		}
+		else if (strcmp(argv[i], "-d") == 0) //Dump all local IP Interface
 		{
 			cout << "----------------------------------------------------------------" << endl;
 			cout << "Please see all Ethernet active adpaters on the system:" << endl;

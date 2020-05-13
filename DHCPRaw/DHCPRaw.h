@@ -51,9 +51,26 @@
 
 using namespace std;
 
+/* GLOBALS */
 extern HANDLE g_hSocketWaitEvent;
 extern CRITICAL_SECTION g_CS[DHCP_REPLY];
 extern bool g_DhcpReceiverAlone;
+extern bool g_DhcpAutoRelease;
+
+/* UTILS FUNCTIONS */
+pIPv4_HDR BuildIPv4Hdr(ULONG SrcIp, ULONG DstIp, USHORT ip_len, USHORT Proto);
+pUDPv4_HDR BuildUDPv4Hdr(USHORT SrcPort, USHORT DstPort, USHORT udp_len);
+USHORT build_option50_54(USHORT OptionType, ULONG RequestedIP, PDHCP_OPT DhcpOpt);
+USHORT build_option53(USHORT MsgType, PDHCP_OPT DhcpOpt);
+USHORT build_option_55(BYTE ParameterRequestList[], PDHCP_OPT DhcpOpt);
+USHORT build_option_81(char* FQDN, PDHCP_OPT DhcpOpt);
+USHORT build_option_61(PUCHAR MacAddr, PDHCP_OPT DhcpOpt);
+bool IsIPv4AddrPlumbebOnAdapter(int IfIndex, char* IPv4);
+DWORD ListAllAdapters();
+DWORD MyEcho(char* IpAddr);
+LARGE_INTEGER UnixTimeToFileTime(time_t t);
+DWORD WaitOnTimer(HANDLE hTimer, time_t time, const char* Msg);
+
 /*
 https://tools.ietf.org/html/rfc2131#section-5
 RFC 2131          Dynamic Host Configuration Protocol         March 1997
@@ -140,18 +157,6 @@ public:
 };
 
 typedef unordered_set<pDHCP_PACKET, Hash, Equal> DhcpMsgQ;
-
-pIPv4_HDR BuildIPv4Hdr(ULONG SrcIp, ULONG DstIp, USHORT ip_len, USHORT Proto);
-pUDPv4_HDR BuildUDPv4Hdr(USHORT SrcPort, USHORT DstPort, USHORT udp_len);
-USHORT build_option50_54(USHORT OptionType, ULONG RequestedIP, PDHCP_OPT DhcpOpt);
-USHORT build_option53(USHORT MsgType, PDHCP_OPT DhcpOpt);
-USHORT build_option_55(BYTE ParameterRequestList[], PDHCP_OPT DhcpOpt);
-USHORT build_option_81(char* FQDN, PDHCP_OPT DhcpOpt);
-USHORT build_option_61(PUCHAR MacAddr, PDHCP_OPT DhcpOpt);
-bool IsIPv4AddrPlumbebOnAdapter(int IfIndex, char* IPv4);
-DWORD ListAllAdapters();
-DWORD MyEcho(char* IpAddr);
-LARGE_INTEGER UnixTimeToFileTime(time_t t);
 
 namespace DHCPRaw 
 {
@@ -240,7 +245,7 @@ namespace DHCPRaw
 	{
 
 		public:
-			enum StateTransition { Init = 0, Selecting, Requesting, Bound, Renewing, Rebinding };
+			enum StateTransition { Init = 0, Selecting, Requesting, Bound, Renewing, Rebinding, Releasing };
 			
 			/////////////////////
 			/// Constructor

@@ -545,3 +545,26 @@ LARGE_INTEGER UnixTimeToFileTime(time_t time)
 	n.QuadPart = (time + 11644473600ULL) * 10000000ULL;
 	return n;
 }
+
+
+DWORD WaitOnTimer(HANDLE hTimer, time_t time, const char* Msg) {
+
+	LARGE_INTEGER liDueTime = UnixTimeToFileTime(time);
+
+	//Wait T1 to Expire
+	if (!SetWaitableTimer(hTimer, &liDueTime, 0, NULL, NULL, 0))
+	{
+		printf("SetWaitableTimer failed (%d)\n", GetLastError());
+		return EXIT_FAILURE;
+	}
+
+	printf("%s\n", Msg);
+
+	// Wait for the timer.
+	if (WaitForSingleObject(hTimer, INFINITE) != WAIT_OBJECT_0)
+		printf("WaitForSingleObject failed (%d)\n", GetLastError());
+	else 
+		DEBUG_PRINT("Wait event signaled\n");
+
+	return EXIT_SUCCESS;
+}
