@@ -372,7 +372,7 @@ void DHCPRawLease::print()
 //DHCPRawClient regular mode (BROADCAST)
 DHCPRawClient::DHCPRawClient(int number, int ifindex,char* ClientPrefixName, std::vector<string> StrCustomOpt)
 {
-	DEBUG_PRINT("-->DHCPRawClient::DHCPRawClient() Construtor\n");
+	DEBUG_PRINT("-->DHCPRawClient::DHCPRawClient() ctor m_ClientNumber:%d\n",number);
 
 	//Attributes
 	//m_IsReceiver = isReceiver;
@@ -399,7 +399,7 @@ DHCPRawClient::DHCPRawClient(int number, int ifindex,char* ClientPrefixName, std
 
 	ConvertStrOptToDhpOpt(StrCustomOpt);
 	
-	DEBUG_PRINT("<--DHCPRawClient::DHCPRawClient() Construtor  m_ClientNumber:%d m_IfIndex:%d m_ClientNamePrefix:%s\n",
+	DEBUG_PRINT("<--DHCPRawClient::DHCPRawClient() ctor  m_ClientNumber:%d m_IfIndex:%d m_ClientNamePrefix:%s\n",
 		m_ClientNumber, m_IfIndex, m_ClientNamePrefix);
 
 }
@@ -408,6 +408,8 @@ DHCPRawClient::DHCPRawClient(int number, int ifindex,char* ClientPrefixName, std
 DHCPRawClient::DHCPRawClient(int number, int ifindex, char* ClientPrefixName, std::vector<string> StrCustomOpt, 
 	bool isRelayOn, char* RelayAddr,char *SrvAddr)
 {
+	DEBUG_PRINT("-->DHCPRawClient::DHCPRawClient() ctor m_ClientNumber:%d\n", number);
+
 	//Attributes
 	//m_IsReceiver = isReceiver;
 	//If not DHCP SenderReceiver
@@ -436,12 +438,16 @@ DHCPRawClient::DHCPRawClient(int number, int ifindex, char* ClientPrefixName, st
 
 	ConvertStrOptToDhpOpt(StrCustomOpt);
 
+	DEBUG_PRINT("<--DHCPRawClient::DHCPRawClient() ctor  m_ClientNumber:%d m_IfIndex:%d m_ClientNamePrefix:%s\n",
+		m_ClientNumber, m_IfIndex, m_ClientNamePrefix);
 	//this->print();
 }
 
 //DHCPRawClient Receiver
 DHCPRawClient::DHCPRawClient(int number, bool isReceiver, bool bIsRealyOn)
 {
+	DEBUG_PRINT("-->DHCPRawClient::DHCPRawClient() ctor Receiver:%d\n", number);
+
 	//Attributes
 	m_IsReceiver = isReceiver;
 	m_gRelayMode = bIsRealyOn;
@@ -451,6 +457,7 @@ DHCPRawClient::DHCPRawClient(int number, bool isReceiver, bool bIsRealyOn)
 	m_pDhcpOffer = m_pDhcpAck = m_pDhcpRequest = NULL;
 	m_pDhcpLease = NULL;
 
+	DEBUG_PRINT("-->DHCPRawClient::DHCPRawClient() ctor Receiver\n");
 }
 
 //Default object printer
@@ -711,11 +718,7 @@ DWORD DHCPRawClient::DhcpClient()
 
 				//Transitionning to Init
 				SetStateTransition(StateTransition::Init);
-				free(m_pDhcpRequest);
-				free(m_pDhcpAck);
-				free(m_pDhcpOffer);
-				free(m_pDhcpLease);
-				//Do not go to DISCOVER AGAIN just the program... DHCPRaw is not intend to replace a DHCP Client :)
+				//Do not go to DISCOVER AGAIN just the exit the thread...
 				return EXIT_FAILURE;
 			}
 			break;
@@ -1048,14 +1051,25 @@ DWORD DHCPRawClient::SetDHCPRequestCompletionEvent(int bucket, pDHCP_PACKET pDhc
 }
 
 //WorkerThread routine
-HANDLE DHCPRawClient::Run()
+void DHCPRawClient::Run()
 {
-	return CreateThread(NULL,
-		0,
-		ThreadEntryPoint,
-		this,
-		0,
-		NULL);
+
+	//return CreateThread(NULL,
+	//	0,
+	//	ThreadEntryPoint,
+	//	this,
+	//	0,
+	//	NULL);
+					//void operator()()
+				//{
+	if (this->m_IsReceiver)
+	{
+		this->DhcpReceiver();
+	}
+	else
+	{
+		this->DhcpClient();
+	}
 }
 
 /* DHCP Client Thread:
@@ -1187,6 +1201,8 @@ DWORD DHCPRawClient::DhcpReceiver()
 
 		if (FD_ISSET(RcvSocket, &readfs))
 		{
+			DEBUG_PRINT("DHCPRawClient::DhcpReceiver(): DHCP msg received\n");
+
 			recvbytes = recvfrom(RcvSocket, RecvBuff, DHCP_MAX_PACKET_SIZE, 0, (SOCKADDR*)&rcvfrom, &SenderAddrSize);
 
 			if (recvbytes == SOCKET_ERROR)

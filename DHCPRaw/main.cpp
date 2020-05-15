@@ -1,6 +1,7 @@
 // DHCPRaw.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 #include "DHCPRaw.h"
+#include <thread>
 
 #define PROGRAM_MAJOR_VERSION 1
 #define PROGRAM_MINOR_VERSION 0
@@ -195,41 +196,48 @@ int main(int argc, char* argv[])
 	}
 		
 
-	//Init Threads DATAs : Last thread is the sender
-	PHANDLE hWorkerThread = (PHANDLE)malloc(sizeof(HANDLE) * ((unsigned long long)NbrLeases + 1));
-	/* Sender Thread Init:
-	This/those (only one currently) thread(s) will send DHCP Request/messages out on the wire
-		ThreadStartupRoutine : DhcpClient / See functions.cpp
+	/*
+		INIT THREADS
+	
 	*/
-
-	/* Getting MAC from ifIndex using IPHELPER API*/
-	//print client number
 	DHCPRawClient* DHCPClients = new DHCPRawClient[NbrLeases + 1];  // Array of size n of Matrix-objects  
-
+	vector<thread> DHCPClientsThreads;
+	thread DHCPReceiverThreads;
 
 	bool IsReceiver = true;
-	DHCPClients[NbrLeases] = DHCPRawClient(NbrLeases, IsReceiver, bIsRealyOn);
-	hWorkerThread[NbrLeases] = DHCPClients[NbrLeases].Run();
 
-	IsReceiver = false;
-	for (int i = 0; i < NbrLeases; i++)
+	try
 	{
-		if(bIsRealyOn)
-			DHCPClients[i] = DHCPRawClient(i, IfIndex,(char*)"DHCPRAW", StrCustomOpt, bIsRealyOn,RelayAddr,SrvAddr);
-		else
-			DHCPClients[i] = DHCPRawClient(i, IfIndex, (char*)"DHCPRAW",StrCustomOpt);
-		hWorkerThread[i] = DHCPClients[i].Run();
+		DHCPClients[NbrLeases] = DHCPRawClient::DHCPRawClient(NbrLeases, IsReceiver, bIsRealyOn);
+		DHCPReceiverThreads = thread(&DHCPRawClient::Run, DHCPClients[NbrLeases]);
+		
+		IsReceiver = false;
+		for (int i = 0; i < NbrLeases; i++)
+		{
+			if (bIsRealyOn)
+			{
+				DHCPClients[i] = DHCPRawClient(i, IfIndex, (char*)"DHCPRAW", StrCustomOpt, bIsRealyOn, RelayAddr, SrvAddr);
+			}
+			else
+			{
+				DHCPClients[i] = DHCPRawClient::DHCPRawClient(i, IfIndex, (char*)"DHCPRAW", StrCustomOpt);
+			}
+			DHCPClientsThreads.push_back(thread(&DHCPRawClient::Run, DHCPClients[i]));
+		}
+
+		for (thread& thread : DHCPClientsThreads) {
+			thread.join();
+		}
+	}
+	catch (...)
+	{
+		cout << "main: EXCEPTION" << endl;
 	}
 
-	
-	// Waiting on DHCP CLient thread to terminate before exiting program
-	WaitForMultipleObjects(NbrLeases, hWorkerThread, TRUE, INFINITE);
-
-	// Waiting on DHCP Receiver thread to stop
 	g_DhcpReceiverAlone = true;
-	WaitForMultipleObjects(1, hWorkerThread, TRUE, INFINITE);
+	DHCPReceiverThreads.join();
 
-	printf("DHCPRaw is exiting. Thanks for using it!\nFeedback : vidou@microsoft.com / vincent.douhet@gmail.com\n");
+	cout << "DHCPRaw is exiting. Thanks for using it!\nFeedback : vidou@microsoft.com / vincent.douhet@gmail.com" << endl;
 
 	return EXIT_SUCCESS;
 }

@@ -245,8 +245,6 @@ namespace DHCPRaw
 	{
 
 		public:
-			enum StateTransition { Init = 0, Selecting, Requesting, Bound, Renewing, Rebinding, Releasing };
-			
 			/////////////////////
 			/// Constructor
 			/////////////////////
@@ -260,18 +258,20 @@ namespace DHCPRaw
 			DHCPRawClient(int number, bool isReceiver, bool bIsRealyOn);
 			//Relay  DHCPRawClient Objects
 			DHCPRawClient(int number, int ifindex, char* ClientPrefixName, std::vector<string> StrCustomOpt, bool isRelayOn, char* RelayAddr, char* SrvAddr);
+
 			/////////////////////
 			/// Methods
 			/////////////////////
 			void print();
 			//
-			HANDLE Run();
+			void Run();
 			//
 
 		private:
 			/////////////////////
 			/// attributes
 			/////////////////////			
+			enum StateTransition { Init = 0, Selecting, Requesting, Bound, Renewing, Rebinding, Releasing };
 			BYTE	m_MAC[ETHER_ADDR_LEN]{ 0,0,0,0,0,0 };
 			int		m_IfIndex = 0;
 			int		m_ClientNumber = 0;
@@ -307,6 +307,7 @@ namespace DHCPRaw
 			*/
 			DWORD DhcpClient();
 			DWORD DhcpReceiver();
+			//
 			DWORD SendDhcpRequest();
 			DWORD SetDHCPRequestCompletionEvent(int bucket, pDHCP_PACKET Reply);
 			DWORD SetStateTransition(int NewState);
@@ -314,23 +315,6 @@ namespace DHCPRaw
 			//
 			int getClientNumber();
 			void ConvertStrOptToDhpOpt(std::vector<string> StrCustomOpt);
-
-			//Static method needed to run thread... Need to explore C++11 threading support
-			static DWORD WINAPI ThreadEntryPoint(LPVOID lpParameter)
-			{
-				DHCPRawClient* Client = (DHCPRawClient*)lpParameter;
-				//DWORD ret = Client->m_IsReceiver == TRUE ? Client->DhcpReceiver() : Client->DhcpClient();
-				if (Client->m_IsReceiver)
-				{
-					Client->DhcpReceiver();
-				}
-				else
-				{
-					Client->DhcpClient();
-				}
-	
-				return EXIT_SUCCESS;
-			}
 	};
 
 }
