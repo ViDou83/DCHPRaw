@@ -156,7 +156,9 @@ public:
 	};
 };
 
-typedef unordered_set<pDHCP_PACKET, Hash, Equal> DhcpMsgQ;
+typedef std::unordered_set<pDHCP_PACKET, Hash, Equal> DhcpMsgQ;
+
+enum StateTransition { Init = 0, Selecting, Requesting, Bound, Renewing, Rebinding, Releasing };
 
 namespace DHCPRaw 
 {
@@ -208,7 +210,7 @@ namespace DHCPRaw
 				//
 			}
 			DHCPRawPacket(BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN]);
-			DHCPRawPacket(BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN], bool IsRealyOn, char* RelayAddr, char* SrvAddr);
+			DHCPRawPacket(BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN], bool IsRealyOn, string RelayAddr, string SrvAddr);
 			/////////////////////
 			/// Methods
 			/////////////////////
@@ -253,12 +255,11 @@ namespace DHCPRaw
 				;
 			}
 			//Regular DHCPRawClient Objects
-			DHCPRawClient(int number, int ifindex, char* ClientPrefixName, std::vector<string> StrCustomOpt);
+			DHCPRawClient(int number, int ifindex, string ClientPrefixName, vector<string> StrCustomOpt);
 			//Sender DHCPRawClient Objects
 			DHCPRawClient(int number, bool isReceiver, bool bIsRealyOn);
 			//Relay  DHCPRawClient Objects
-			DHCPRawClient(int number, int ifindex, char* ClientPrefixName, std::vector<string> StrCustomOpt, bool isRelayOn, char* RelayAddr, char* SrvAddr);
-
+			DHCPRawClient(int number, int ifindex, string ClientPrefixName, vector<string> StrCustomOpt, bool isRelayOn, string RelayAddr, string SrvAddr);
 			/////////////////////
 			/// Methods
 			/////////////////////
@@ -271,7 +272,8 @@ namespace DHCPRaw
 			/////////////////////
 			/// attributes
 			/////////////////////			
-			enum StateTransition { Init = 0, Selecting, Requesting, Bound, Renewing, Rebinding, Releasing };
+			enum	StateTransition { Init = 0, Selecting, Requesting, Bound, Renewing, Rebinding, Releasing };
+
 			BYTE	m_MAC[ETHER_ADDR_LEN]{ 0,0,0,0,0,0 };
 			int		m_IfIndex = 0;
 			int		m_ClientNumber = 0;
@@ -279,9 +281,9 @@ namespace DHCPRaw
 			bool	m_IsOfferReceive = false;
 			int		m_StateTransition = StateTransition::Init;
 			bool	m_gRelayMode = FALSE;
-			char*	m_RelayAddr = NULL;
-			char*	m_SrvAddr = NULL;
-			char*	m_ClientNamePrefix = NULL;
+			string	m_RelayAddr;
+			string  m_SrvAddr;
+			string	m_ClientNamePrefix;
 			HANDLE	m_hTimer = NULL;
 			int		m_numberOfCustomOpts = 0;
 
@@ -292,7 +294,7 @@ namespace DHCPRaw
 			pDHCP_PACKET	m_pDhcpOffer	= NULL;
 			pDHCP_PACKET	m_pDhcpAck		= NULL;
 			pDHCP_LEASE		m_pDhcpLease	= NULL;
-			std::vector<PDHCP_OPT> m_pCustomDhcpOpts;
+			vector<PDHCP_OPT> m_pCustomDhcpOpts;
 			/////////////////////
 			/// Methods
 			/////////////////////
@@ -314,7 +316,7 @@ namespace DHCPRaw
 			DWORD build_dhpc_request();
 			//
 			int getClientNumber();
-			void ConvertStrOptToDhpOpt(std::vector<string> StrCustomOpt);
+			void ConvertStrOptToDhpOpt(vector<string> StrCustomOpt);
 	};
 
 }

@@ -18,6 +18,7 @@ bool g_DhcpReceiverAlone = false;
 bool g_pDhcpCustomOpt = false;
 bool g_DhcpAutoRelease = false;
 
+using namespace std;
 using namespace DHCPRaw;
 
 /* Helper */
@@ -43,16 +44,16 @@ int main(int argc, char* argv[])
 {
 	int IfIndex = 0;
 	int NbrLeases = 1;
-	char* RelayAddr = NULL;
-	char* SrvAddr = NULL;
+	string RelayAddr;
+	string SrvAddr;
 	bool bIsRealyOn = false;
-	
+	string sClientFQDN = "DHCPRAW";
 
 	/* Variables where handles to the added IP are returned */
 	ULONG NTEContext	= 0;
 	ULONG NTEInstance	= 0;
 	DWORD dwRetVal		= 0;
-	std::vector<string> StrCustomOpt;
+	vector<string> StrCustomOpt;
  
 	/* Checking args number */
 	if (argc < 2)
@@ -62,7 +63,7 @@ int main(int argc, char* argv[])
 	}
 
 	// Checking is we are on server SKU
-	/*if (!IsWindowsServer())
+	if (!IsWindowsServer())
 	{
 		cout << "###############################################################################################################" << endl;
 		cout << "#\t\t\t\t\t\t\t\t\t\t\t\t\t\t#" << endl;
@@ -81,7 +82,7 @@ int main(int argc, char* argv[])
 		Help();
 
 		return EXIT_SUCCESS;
-	}*/
+	}
 
 	for (int i = 0; i < argc; i++)
 	{
@@ -139,9 +140,9 @@ int main(int argc, char* argv[])
 	//Adding Ip Address of Relay
 	if (bIsRealyOn)
 	{
-		if (!IsIPv4AddrPlumbebOnAdapter(IfIndex, RelayAddr))
+		if (!IsIPv4AddrPlumbebOnAdapter(IfIndex, (char*)RelayAddr.c_str()))
 		{
-			if (dwRetVal = AddIPAddress(inet_addr(RelayAddr), inet_addr("255.255.255.0"), IfIndex, &NTEContext, &NTEInstance) == NO_ERROR)
+			if (dwRetVal = AddIPAddress(inet_addr(RelayAddr.c_str()), inet_addr("255.255.255.0"), IfIndex, &NTEContext, &NTEInstance) == NO_ERROR)
 				printf("main(): Relay IPv4 address %s was successfully added.\n", RelayAddr);
 			else
 				printf("main(): IPv4 address %s failed to be added with error: %d\n", RelayAddr, dwRetVal);
@@ -151,7 +152,7 @@ int main(int argc, char* argv[])
 			{
 				printf("main(): waiting till RelayAddr=%s is reachabled\n", RelayAddr);
 				Sleep(5000);
-			} while (MyEcho(RelayAddr) != 0);
+			} while (MyEcho((char*)RelayAddr.c_str()) != 0);
 
 		}
 	}
@@ -216,16 +217,17 @@ int main(int argc, char* argv[])
 		{
 			if (bIsRealyOn)
 			{
-				DHCPClients[i] = DHCPRawClient(i, IfIndex, (char*)"DHCPRAW", StrCustomOpt, bIsRealyOn, RelayAddr, SrvAddr);
+				DHCPClients[i] = DHCPRawClient::DHCPRawClient(i, IfIndex, sClientFQDN, StrCustomOpt, bIsRealyOn, RelayAddr, SrvAddr);
 			}
 			else
 			{
-				DHCPClients[i] = DHCPRawClient::DHCPRawClient(i, IfIndex, (char*)"DHCPRAW", StrCustomOpt);
+				DHCPClients[i] = DHCPRawClient::DHCPRawClient(i, IfIndex, sClientFQDN, StrCustomOpt);
 			}
 			DHCPClientsThreads.push_back(thread(&DHCPRawClient::Run, DHCPClients[i]));
 		}
 
-		for (thread& thread : DHCPClientsThreads) {
+		for (thread& thread : DHCPClientsThreads) 
+		{
 			thread.join();
 		}
 	}

@@ -109,7 +109,7 @@ DHCPRawPacket::DHCPRawPacket(BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN])
 }
 
 /* DHCPRawPacket Constructor for DHCP client with relay */
-DHCPRawPacket::DHCPRawPacket(BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN], bool IsRealyOn, char* RelayAddr,char* SrvAddr)
+DHCPRawPacket::DHCPRawPacket(BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN], bool IsRealyOn, string RelayAddr, string SrvAddr)
 {
 	/* Init DHCP Node */
 	if (NewDhcpPacket(this->m_pDhcpPacket) == EXIT_FAILURE)
@@ -117,8 +117,8 @@ DHCPRawPacket::DHCPRawPacket(BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN], bool IsRealyOn,
 
 	/* Init DHCP Message */
 	BYTE dhcp_flags		= IsRealyOn == TRUE ? DHCP_BROADCAST_FLAG << 7 : DHCP_UNICAST_FLAG << 7;
-	ULONG srcAddr		= IsRealyOn == TRUE ? inet_addr(RelayAddr) : INADDR_ANY;
-	ULONG dstAddr		= IsRealyOn == TRUE ? inet_addr(SrvAddr) : INADDR_BROADCAST;
+	ULONG srcAddr		= IsRealyOn == TRUE ? inet_addr(RelayAddr.c_str()) : INADDR_ANY;
+	ULONG dstAddr		= IsRealyOn == TRUE ? inet_addr(SrvAddr.c_str()) : INADDR_BROADCAST;
 	USHORT UdpSrcPort	= IsRealyOn == TRUE ? DHCP_UDP_SPORT : DHCP_UDP_CPORT;
 
 	SetDhcpMessage(DHCP_REQUEST, dhcp_flags, srcAddr, dhcp_chaddr);
@@ -370,43 +370,42 @@ void DHCPRawLease::print()
 /////////////////////////////
 
 //DHCPRawClient regular mode (BROADCAST)
-DHCPRawClient::DHCPRawClient(int number, int ifindex,char* ClientPrefixName, std::vector<string> StrCustomOpt)
+DHCPRawClient::DHCPRawClient(int number, int ifindex,string ClientPrefixName, vector<string> StrCustomOpt)
 {
 	DEBUG_PRINT("-->DHCPRawClient::DHCPRawClient() ctor m_ClientNumber:%d\n",number);
 
-	//Attributes
-	//m_IsReceiver = isReceiver;
-	//If not DHCP SenderReceiver
 	m_ClientNumber = number;
 	m_IfIndex = ifindex;
 	m_pDhcpOffer = m_pDhcpAck = m_pDhcpRequest = NULL;
 	m_pDhcpLease = NULL;
-
-	m_ClientNamePrefix = (char*)malloc( ( strlen(ClientPrefixName) + 1 )* sizeof(char) );
-	memcpy(m_ClientNamePrefix, ClientPrefixName, (strlen(ClientPrefixName) + 1) * sizeof(char));
+	
+	m_ClientNamePrefix = ClientPrefixName + to_string(m_ClientNumber);
 
 	// setMAc from adapter with ifIndex = m_IfIndex;
-	if (setMAC() == EXIT_FAILURE) { cout << "Cannot get MAC address from ifIndex:" << m_IfIndex << endl; }
-	//
+	if (setMAC() == EXIT_FAILURE) 
+	{ 
+		throw "Cannot get MAC address"; 
+	}
+		
 	m_DhcpRawPacket = DHCPRawPacket(m_MAC);
 
 	// Create an unnamed waitable timer for T1 and T2 lease.
 	m_hTimer = CreateWaitableTimer(NULL, TRUE, NULL);
 	if (NULL == m_hTimer)
 	{
-		printf(" DHCPRawLease::DHCPRawLeaseCreateWaitableTimer failed (%d)\n", GetLastError());
+		throw "DHCPRawLease::DHCPRawLeaseCreateWaitableTimer failed";
 	}
 
 	ConvertStrOptToDhpOpt(StrCustomOpt);
 	
 	DEBUG_PRINT("<--DHCPRawClient::DHCPRawClient() ctor  m_ClientNumber:%d m_IfIndex:%d m_ClientNamePrefix:%s\n",
-		m_ClientNumber, m_IfIndex, m_ClientNamePrefix);
+		m_ClientNumber, m_IfIndex, m_ClientNamePrefix.c_str());
 
 }
 
 //DHCPRawClient regular mode (RELAY)
-DHCPRawClient::DHCPRawClient(int number, int ifindex, char* ClientPrefixName, std::vector<string> StrCustomOpt, 
-	bool isRelayOn, char* RelayAddr,char *SrvAddr)
+DHCPRawClient::DHCPRawClient(int number, int ifindex, string ClientPrefixName, vector<string> StrCustomOpt, 
+	bool isRelayOn, string RelayAddr,string SrvAddr)
 {
 	DEBUG_PRINT("-->DHCPRawClient::DHCPRawClient() ctor m_ClientNumber:%d\n", number);
 
@@ -418,13 +417,16 @@ DHCPRawClient::DHCPRawClient(int number, int ifindex, char* ClientPrefixName, st
 	m_pDhcpOffer = m_pDhcpAck = m_pDhcpRequest = NULL;
 	m_pDhcpLease = NULL;
 
-	m_ClientNamePrefix = (char*)malloc((strlen(ClientPrefixName) + 1) * sizeof(char));
-	memcpy(m_ClientNamePrefix, ClientPrefixName, (strlen(ClientPrefixName) + 1) * sizeof(char));
+	m_ClientNamePrefix = ClientPrefixName + to_string(m_ClientNumber);
 
 	// setMAc from adapter with ifIndex = m_IfIndex;
-	if (setMAC() == EXIT_FAILURE) { cout << "Cannot get MAC address from ifIndex:" << m_IfIndex << endl; }
-	//
+	if (setMAC() == EXIT_FAILURE)
+	{
+		throw "Cannot get MAC address";
+	}
+
 	m_DhcpRawPacket = DHCPRawPacket(m_MAC,isRelayOn,RelayAddr,SrvAddr);
+	
 	m_gRelayMode = isRelayOn;
 	m_RelayAddr = RelayAddr;
 	m_SrvAddr = SrvAddr;
@@ -433,13 +435,13 @@ DHCPRawClient::DHCPRawClient(int number, int ifindex, char* ClientPrefixName, st
 	m_hTimer = CreateWaitableTimer(NULL, TRUE, NULL);
 	if (NULL == m_hTimer)
 	{
-		printf(" DHCPRawLease::DHCPRawLeaseCreateWaitableTimer failed (%d)\n", GetLastError());
+		throw "DHCPRawLease::DHCPRawLeaseCreateWaitableTimer failed";
 	}
 
 	ConvertStrOptToDhpOpt(StrCustomOpt);
 
 	DEBUG_PRINT("<--DHCPRawClient::DHCPRawClient() ctor  m_ClientNumber:%d m_IfIndex:%d m_ClientNamePrefix:%s\n",
-		m_ClientNumber, m_IfIndex, m_ClientNamePrefix);
+		m_ClientNumber, m_IfIndex, m_ClientNamePrefix.c_str());
 	//this->print();
 }
 
@@ -816,8 +818,8 @@ DWORD DHCPRawClient::build_dhpc_request()
 {
 	DEBUG_PRINT("--> DHCPRawClient::build_dhpc_request CLient:%d FSM:%d\n", m_ClientNumber, this->m_StateTransition);
 	
-	char* pchDomainName = NULL;
-	char* pcClientFQDN = (char*)malloc(sizeof(char) * strlen((const char*)m_ClientNamePrefix) + 255);
+	string pchDomainName; // = NULL;
+	string pcClientFQDN;// = (char*)malloc(sizeof(char) * m_ClientNamePrefix.size() + 255);
 	USHORT iNbrOpt = 0;
 	USHORT iDhcpOptSize = 0;
 	USHORT iDhcpOpt = 0;
@@ -943,8 +945,9 @@ DWORD DHCPRawClient::build_dhpc_request()
 			//Get the domain name from the DHCP Reply
 			if (m_pDhcpReply->m_ppDhcpOpt[i]->OptionType == DHCP_DOMAINNAME)
 			{
-				pchDomainName = (char*)malloc(strlen((const char*)m_pDhcpReply->m_ppDhcpOpt[i]->OptionValue) * sizeof(BYTE));
-				pchDomainName = (char*)m_pDhcpReply->m_ppDhcpOpt[i]->OptionValue;
+				//pchDomainName = (char*)malloc(strlen((const char*)m_pDhcpReply->m_ppDhcpOpt[i]->OptionValue) * sizeof(BYTE));
+				//pchDomainName = (char*)m_pDhcpReply->m_ppDhcpOpt[i]->OptionValue;
+				pchDomainName = string((const char*)m_pDhcpReply->m_ppDhcpOpt[i]->OptionValue, m_pDhcpReply->m_ppDhcpOpt[i]->OptionLength);
 			}
 		}
 
@@ -968,10 +971,12 @@ DWORD DHCPRawClient::build_dhpc_request()
 		iDhcpOptSize += build_option_61(DhcpPacket->m_pDhcpMsg->dhcp_chaddr, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
 		iDhcpOpt++;
 
-		sprintf(pcClientFQDN, "%s%d.%s", m_ClientNamePrefix, m_pDhcpReply->m_pDhcpMsg->dhcp_chaddr[5], pchDomainName);
+		pcClientFQDN = m_ClientNamePrefix + "." + pchDomainName;
+
+		//sprintf(pcClientFQDN, "%s%d.%s", m_ClientNamePrefix, m_pDhcpReply->m_pDhcpMsg->dhcp_chaddr[5], pchDomainName);
 		DEBUG_PRINT("OPTION81: %s\n", pcClientFQDN);
 
-		iDhcpOptSize += build_option_81(pcClientFQDN, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
+		iDhcpOptSize += build_option_81((char*)pcClientFQDN.c_str(), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
 		iDhcpOpt++;
 
 		// adding srv identity
@@ -1003,7 +1008,7 @@ DWORD DHCPRawClient::build_dhpc_request()
 		
 	DhcpPacket->m_pDhcpMsg->dhcp_sip = 0;
 	//Relay mode 
-	DhcpPacket->m_pDhcpMsg->dhcp_gip = m_gRelayMode == TRUE ? inet_addr(m_RelayAddr) : 0;
+	DhcpPacket->m_pDhcpMsg->dhcp_gip = m_gRelayMode == TRUE ? inet_addr(m_RelayAddr.c_str()) : 0;
 
 	DhcpPacket->m_iSizeOpt = iDhcpOptSize;
 	DhcpPacket->m_iNbrOpt = iNbrOpt;
