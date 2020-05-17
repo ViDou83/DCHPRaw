@@ -73,16 +73,16 @@ USHORT build_option53(USHORT MsgType, PDHCP_OPT DhcpOpt)
 	else
 		return EXIT_SUCCESS;
 
-	return DhcpOpt->OptionLength + 1;
+	return DhcpOpt->OptionLength + 2;
 }
 
-USHORT build_option_55(BYTE ParameterRequestList[], PDHCP_OPT DhcpOpt)
+USHORT build_option_55(vector<int> ParameterRequestList, PDHCP_OPT DhcpOpt)
 {
 	DhcpOpt->OptionType = DHCP_PARAMREQUEST;
-	DhcpOpt->OptionLength = 5;
+	DhcpOpt->OptionLength = ParameterRequestList.size();
 	DhcpOpt->OptionValue = (PBYTE)malloc(sizeof(BYTE) * DhcpOpt->OptionLength);
 
-	for (int i = 0; i < DhcpOpt->OptionLength; i++)
+	for (int i = 0; i < ParameterRequestList.size(); i++)
 		DhcpOpt->OptionValue[i] = ParameterRequestList[i];
 
 	return DhcpOpt->OptionLength + 2;

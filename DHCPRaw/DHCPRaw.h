@@ -62,7 +62,7 @@ pIPv4_HDR BuildIPv4Hdr(ULONG SrcIp, ULONG DstIp, USHORT ip_len, USHORT Proto);
 pUDPv4_HDR BuildUDPv4Hdr(USHORT SrcPort, USHORT DstPort, USHORT udp_len);
 USHORT build_option50_54(USHORT OptionType, ULONG RequestedIP, PDHCP_OPT DhcpOpt);
 USHORT build_option53(USHORT MsgType, PDHCP_OPT DhcpOpt);
-USHORT build_option_55(BYTE ParameterRequestList[], PDHCP_OPT DhcpOpt);
+USHORT build_option_55(vector<int> ParameterRequestList, PDHCP_OPT DhcpOpt);
 USHORT build_option_81(char* FQDN, PDHCP_OPT DhcpOpt);
 USHORT build_option_61(PUCHAR MacAddr, PDHCP_OPT DhcpOpt);
 bool IsIPv4AddrPlumbebOnAdapter(int IfIndex, char* IPv4);
