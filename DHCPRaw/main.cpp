@@ -44,17 +44,23 @@ int main(int argc, char* argv[])
 {
 	int IfIndex = 0;
 	int NbrLeases = 1;
-	string RelayAddr;
-	string SrvAddr;
 	bool bIsRealyOn = false;
+
+	vector<string> RelayAddrs;
+	vector<string> SrvAddrs;
+	vector<string> StrCustomOpt;
+	
 	string sClientFQDN = "DHCPRAW";
 
 	/* Variables where handles to the added IP are returned */
 	ULONG NTEContext	= 0;
 	ULONG NTEInstance	= 0;
 	DWORD dwRetVal		= 0;
-	vector<string> StrCustomOpt;
  
+	/* Use to split relay and server addresses*/
+	string intermediate;
+	stringstream check1;
+
 	/* Checking args number */
 	if (argc < 2)
 	{
@@ -68,15 +74,12 @@ int main(int argc, char* argv[])
 		cout << "###############################################################################################################" << endl;
 		cout << "#\t\t\t\t\t\t\t\t\t\t\t\t\t\t#" << endl;
 		cout << "#\tPlease note that this binary is only working on WindowsServer as RAW socket capability is needed !\t#" << endl;
-		cout << "#\t\t\t\t\t\t\t\t\t\t\t\t\t\t#" << endl;
 		cout << "#\t https://docs.microsoft.com/en-us/windows/desktop/winsock/tcp-ip-raw-sockets-2 \t\t\t\t#" << endl;
-		cout << "#\t\t\t\t\t\t\t\t\t\t\t\t\t\t#" << endl;
 		cout << "#\tTo use a socket of type SOCK_RAW requires administrative privileges.\t\t\t\t\t#" << endl;
 		cout << "#\tUsers running Winsock applications that use raw sockets must be a member of the Administrators\t\t#" << endl;
 		cout << "#\tgroup on the local computer, otherwise raw socket calls will fail with an error code of WSAEACCES.\t#" << endl;
 		cout << "#\tOn Windows Vista and later, access for raw sockets is enforced at socket creation.\t\t\t#" << endl;
 		cout << "#\tIn earlier versions of Windows, access for raw sockets is enforced during other socket operations.\t#" << endl;
-		cout << "#\t\t\t\t\t\t\t\t\t\t\t\t\t\t#" << endl;
 		cout << "###############################################################################################################" << endl;
 
 		Help();
@@ -93,21 +96,32 @@ int main(int argc, char* argv[])
 		else if (strcmp(argv[i], "-r") == 0) //Relay address to use 
 		{
 			bIsRealyOn = true;
-			RelayAddr = argv[i + 1];
+			check1 = stringstream(argv[i + 1]);
+			while (getline(check1, intermediate, ','))
+			{
+				RelayAddrs.push_back(intermediate);
+			}
 		}
 		else if (strcmp(argv[i], "-s") == 0) //Dhcp server address to send DHCP packets whith relay mode
 		{
 			bIsRealyOn = true;
-			SrvAddr = argv[i + 1];
+			check1 = stringstream(argv[i + 1]);
+			while (getline(check1, intermediate, ','))
+			{
+				SrvAddrs.push_back(intermediate);
+			}
 		}
 		else if (strcmp(argv[i], "-opt") == 0) //DHCP custom opts
 		{
 			g_pDhcpCustomOpt = true;
 			char *line = argv[i + 1];
 			char *pch = strtok(line, ",;:/");
-			while (pch != NULL)
+			string str;
+			while (pch  != NULL)
 			{
-				StrCustomOpt.push_back(pch);
+				str = pch;
+				str.erase(remove_if(str.begin(), str.end(), isspace), str.end());
+				StrCustomOpt.push_back(str);
 				pch = strtok(NULL, ",;:/");
 			}
 			
@@ -118,21 +132,19 @@ int main(int argc, char* argv[])
 		}
 		else if (strcmp(argv[i], "-d") == 0) //Dump all local IP Interface
 		{
-			cout << "----------------------------------------------------------------" << endl;
 			cout << "Please see all Ethernet active adpaters on the system:" << endl;
-			cout << "----------------------------------------------------------------" << endl;
 			ListAllAdapters();
 			return EXIT_SUCCESS;
 		}
 	}
 
+
+
 	//Exit if no TCPIP adapter has been provided
-	if (!IfIndex) {
-		cout << "----------------------------------------------------------------" << endl;
+	if (!IfIndex) 
+	{
 		cout << "Error: Please specify one interface Index where to send out DHCP messages" << endl;
-		cout << "----------------------------------------------------------------" << endl;
 		Help();
-		cout << "----------------------------------------------------------------" << endl;
 		//GetAdaptersInfo();
 		return EXIT_FAILURE;
 	}
@@ -140,20 +152,41 @@ int main(int argc, char* argv[])
 	//Adding Ip Address of Relay
 	if (bIsRealyOn)
 	{
-		if (!IsIPv4AddrPlumbebOnAdapter(IfIndex, (char*)RelayAddr.c_str()))
+		//Validate all IP addresses provided
+		for (int i = 0; i < SrvAddrs.size(); i++)
 		{
-			if (dwRetVal = AddIPAddress(inet_addr(RelayAddr.c_str()), inet_addr("255.255.255.0"), IfIndex, &NTEContext, &NTEInstance) == NO_ERROR)
-				printf("main(): Relay IPv4 address %s was successfully added.\n", RelayAddr);
-			else
-				printf("main(): IPv4 address %s failed to be added with error: %d\n", RelayAddr, dwRetVal);
-
-			//Waiting till the IP is bound
-			do
+			if (CheckValidIpAddr(SrvAddrs[i].c_str()) == FALSE)
 			{
-				printf("main(): waiting till RelayAddr=%s is reachabled\n", RelayAddr);
-				Sleep(5000);
-			} while (MyEcho((char*)RelayAddr.c_str()) != 0);
+				cout << "Error: Either RelayAddr or SrvAddr provided are not valid Ip Address" << endl;
+				//GetAdaptersInfo();
+				return EXIT_FAILURE;
+			}
+		}
 
+		//Validate all IP addresses provided
+		for (int i = 0; i < RelayAddrs.size(); i++)
+		{
+			if (CheckValidIpAddr(RelayAddrs[i].c_str()) == FALSE)
+			{
+				cout << "Error: Either RelayAddr or SrvAddr provided are not valid Ip Address" << endl;
+				//GetAdaptersInfo();
+				return EXIT_FAILURE;
+			}
+
+			if (!IsIPv4AddrPlumbebOnAdapter(IfIndex, (char*)RelayAddrs[i].c_str()))
+			{
+				if (dwRetVal = AddIPAddress(inet_addr(RelayAddrs[i].c_str()), inet_addr("255.255.255.0"), IfIndex, &NTEContext, &NTEInstance) == NO_ERROR)
+					printf("main(): Relay IPv4 address %s was successfully added.\n", RelayAddrs[i].c_str());
+				else
+					printf("main(): IPv4 address %s failed to be added with error: %d\n", RelayAddrs[i].c_str(), dwRetVal);
+
+				//Waiting till the IP is bound
+				do
+				{
+					printf("main(): waiting till RelayAddr=%s is reachabled\n", RelayAddrs[i].c_str());
+					Sleep(5000);
+				} while (MyEcho((char*)RelayAddrs[i].c_str()) != 0);
+			}
 		}
 	}
 
@@ -217,11 +250,11 @@ int main(int argc, char* argv[])
 		{
 			if (bIsRealyOn)
 			{
-				DHCPClients[i] = DHCPRawClient::DHCPRawClient(i, IfIndex, sClientFQDN, StrCustomOpt, bIsRealyOn, RelayAddr, SrvAddr);
+				DHCPClients[i] = DHCPRawClient::DHCPRawClient(i, IfIndex, bIsRealyOn, sClientFQDN, StrCustomOpt, RelayAddrs, SrvAddrs);
 			}
 			else
 			{
-				DHCPClients[i] = DHCPRawClient::DHCPRawClient(i, IfIndex, sClientFQDN, StrCustomOpt);
+				DHCPClients[i] = DHCPRawClient::DHCPRawClient(i, IfIndex, bIsRealyOn, sClientFQDN, StrCustomOpt);
 			}
 			DHCPClientsThreads.push_back(thread(&DHCPRawClient::Run, DHCPClients[i]));
 		}
@@ -238,6 +271,17 @@ int main(int argc, char* argv[])
 
 	g_DhcpReceiverAlone = true;
 	DHCPReceiverThreads.join();
+
+	//Removing relay IP
+	if (bIsRealyOn)
+	{
+		for (int i = 0; i < RelayAddrs.size(); i++)
+		{
+			cout << "Cleanup previously sadded relay addresses:" << RelayAddrs[i].c_str() << endl;
+
+			CleanupAlternateIPv4OnInt(IfIndex, (char*)RelayAddrs[i].c_str());
+		}
+	}
 
 	cout << "DHCPRaw is exiting. Thanks for using it!\nFeedback : vidou@microsoft.com / vincent.douhet@gmail.com" << endl;
 

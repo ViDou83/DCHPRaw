@@ -70,6 +70,9 @@ DWORD ListAllAdapters();
 DWORD MyEcho(char* IpAddr);
 LARGE_INTEGER UnixTimeToFileTime(time_t t);
 DWORD WaitOnTimer(HANDLE hTimer, time_t time, const char* Msg);
+bool CheckValidIpAddr(string IpAddr);
+void CleanupAlternateIPv4OnInt(int IfIndex, char* IPv4);
+DWORD GetAdapterMacByIndex(int IfIndex, BYTE(&MAC)[ETHER_ADDR_LEN]);
 
 /*
 https://tools.ietf.org/html/rfc2131#section-5
@@ -209,43 +212,38 @@ namespace DHCPRaw
 			{
 				//
 			}
-			DHCPRawPacket(BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN]);
-			DHCPRawPacket(BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN], bool IsRealyOn, string RelayAddr, string SrvAddr);
+			DHCPRawPacket(BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN], bool isRelayOn);
 			/////////////////////
 			/// Methods
 			/////////////////////
-			void	print();
-			HANDLE	Run();
-			void	destroy();
+			void print();
+			void Free();
 			//
-			pDHCP_PACKET	get_pDhcpPacket();
-			pIPv4_HDR		get_pIPv4hdr();
-			pUDPv4_HDR		get_pUDPv4hdr();
-			pDHCPv4_HDR		get_pDhcpMsg();
+			pDHCP_PACKET get_pDhcpPacket();
+			pIPv4_HDR get_pIPv4hdr();
+			pUDPv4_HDR get_pUDPv4hdr();
+			pDHCPv4_HDR get_pDhcpMsg();
 			//PDHCP_OPT*		get_pDhcpOpts();
 
 		private:
 			/////////////////////
 			/// attributes
 			/////////////////////	
-			pDHCP_PACKET	m_pDhcpPacket	= NULL;
+			pDHCP_PACKET m_pDhcpPacket	= NULL;
 			//pDHCP_PACKET	m_pDHCPv4_HDR	= NULL;
-			pIPv4_HDR		m_pIPv4_HDR		= NULL;
-			pUDPv4_HDR		m_pUDPv4_HDR	= NULL;
+			pIPv4_HDR m_pIPv4_HDR		= NULL;
+			pUDPv4_HDR m_pUDPv4_HDR	= NULL;
 
 			/////////////////////
 			/// Methods
 			/////////////////////
 			// Create pIPV4 and UDPv4 hearder
 			DWORD SetDhcpMessage(BYTE dhcp_opcode, BYTE dhcp_flags, ULONG dhcp_gip, BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN]);
-			
-
 	};
 
 	//DHCPRawClient 
 	class DHCPRawClient
 	{
-
 		public:
 			/////////////////////
 			/// Constructor
@@ -255,45 +253,43 @@ namespace DHCPRaw
 				;
 			}
 			//Regular DHCPRawClient Objects
-			DHCPRawClient(int number, int ifindex, string ClientPrefixName, vector<string> StrCustomOpt);
+			DHCPRawClient(int number, int ifindex, bool isRelayOn, string ClientPrefixName, vector<string> StrCustomOpt);
 			//Sender DHCPRawClient Objects
 			DHCPRawClient(int number, bool isReceiver, bool bIsRealyOn);
 			//Relay  DHCPRawClient Objects
-			DHCPRawClient(int number, int ifindex, string ClientPrefixName, vector<string> StrCustomOpt, bool isRelayOn, string RelayAddr, string SrvAddr);
+			DHCPRawClient(int number, int ifindex, bool isRelayOn, string ClientPrefixName, vector<string> StrCustomOpt, vector<string> RelayAddrs, vector<string> SrvAddrs);
 			/////////////////////
 			/// Methods
 			/////////////////////
 			void print();
 			//
 			void Run();
-			//
 
 		private:
 			/////////////////////
 			/// attributes
 			/////////////////////			
-			enum	StateTransition { Init = 0, Selecting, Requesting, Bound, Renewing, Rebinding, Releasing };
+			enum StateTransition { Init = 0, Selecting, Requesting, Bound, Renewing, Rebinding, Releasing };
 
-			BYTE	m_MAC[ETHER_ADDR_LEN]{ 0,0,0,0,0,0 };
-			int		m_IfIndex = 0;
-			int		m_ClientNumber = 0;
-			bool	m_IsReceiver = false;
-			bool	m_IsOfferReceive = false;
-			int		m_StateTransition = StateTransition::Init;
-			bool	m_gRelayMode = FALSE;
-			string	m_RelayAddr;
-			string  m_SrvAddr;
-			string	m_ClientNamePrefix;
-			HANDLE	m_hTimer = NULL;
-			int		m_numberOfCustomOpts = 0;
-
-			DHCPRawPacket	m_DhcpRawPacket;
-			DHCPRawLease	m_DhcpRawLease;
+			BYTE m_MAC[ETHER_ADDR_LEN]{ 0,0,0,0,0,0 };
+			int	m_IfIndex = 0;
+			int	m_ClientNumber = 0;
+			int	m_StateTransition = StateTransition::Init;
+			int	m_numberOfCustomOpts = 0;
+			bool m_IsReceiver = false;
+			bool m_IsOfferReceive = false;
+			bool m_gRelayMode = FALSE;
+			vector<string> m_RelayAddrs;
+			vector<string> m_SrvAddrs;
+			string m_ClientNamePrefix;
+			HANDLE m_hTimer = NULL;
+			DHCPRawPacket m_DhcpRawPacket;
+			DHCPRawLease m_DhcpRawLease;
 			//pDHCP_PACKET is the struct enqueued to the hashtable... DHCP Sender/receiver will then consume it.
-			pDHCP_PACKET	m_pDhcpRequest	= NULL;
-			pDHCP_PACKET	m_pDhcpOffer	= NULL;
-			pDHCP_PACKET	m_pDhcpAck		= NULL;
-			pDHCP_LEASE		m_pDhcpLease	= NULL;
+			pDHCP_PACKET m_pDhcpRequest	= NULL;
+			pDHCP_PACKET m_pDhcpOffer	= NULL;
+			pDHCP_PACKET m_pDhcpAck		= NULL;
+			pDHCP_LEASE	 m_pDhcpLease	= NULL;
 			vector<PDHCP_OPT> m_pCustomDhcpOpts;
 			/////////////////////
 			/// Methods
@@ -316,10 +312,7 @@ namespace DHCPRaw
 			DWORD build_dhpc_request();
 			//
 			int getClientNumber();
-			void ConvertStrOptToDhpOpt(vector<string> StrCustomOpt);
+			DWORD ConvertStrOptToDhpOpt(vector<string> StrCustomOpt);
 	};
 
 }
-
-//Utils
-DWORD GetAdapterMacByIndex(int IfIndex, BYTE (&MAC)[ETHER_ADDR_LEN]);

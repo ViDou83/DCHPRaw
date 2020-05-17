@@ -546,7 +546,6 @@ LARGE_INTEGER UnixTimeToFileTime(time_t time)
 	return n;
 }
 
-
 DWORD WaitOnTimer(HANDLE hTimer, time_t time, const char* Msg) {
 
 	LARGE_INTEGER liDueTime = UnixTimeToFileTime(time);
@@ -567,4 +566,38 @@ DWORD WaitOnTimer(HANDLE hTimer, time_t time, const char* Msg) {
 		DEBUG_PRINT("Wait event signaled\n");
 
 	return EXIT_SUCCESS;
+}
+
+bool CheckValidIpAddr(string IpAddr)
+{
+	vector<string> tokens;
+	string intermediate;
+	stringstream check1(IpAddr);
+	int byte = 0;
+
+	while (getline(check1, intermediate, '.'))
+	{
+		tokens.push_back(intermediate);
+	}
+
+	if (tokens.size() != 4)
+		return false;
+
+	for (int i = 0; i < tokens.size(); i++)
+	{
+		if (tokens[i].size() > 3 )
+			return false;
+
+		for (const char c : tokens[i]) 
+		{
+			if (!isdigit(c))
+				return false;
+		}
+
+		byte = atoi(tokens[i].c_str());
+		if (byte < 0 || byte > 255)
+			return false;
+	}
+
+	return true;
 }
