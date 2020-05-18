@@ -234,7 +234,7 @@ int main(int argc, char* argv[])
 		INIT THREADS
 	
 	*/
-	DHCPRawClient* DHCPClients = new DHCPRawClient[NbrLeases + 1];  // Array of size n of Matrix-objects  
+	DHCPRawClient **DHCPClients = new DHCPRawClient*[NbrLeases+1];  // Array of size n of Matrix-objects  
 	vector<thread> DHCPClientsThreads;
 	thread DHCPReceiverThreads;
 
@@ -242,7 +242,7 @@ int main(int argc, char* argv[])
 
 	try
 	{
-		DHCPClients[NbrLeases] = DHCPRawClient::DHCPRawClient(NbrLeases, IsReceiver, bIsRealyOn);
+		DHCPClients[NbrLeases] = new DHCPRawClient(NbrLeases, IsReceiver, bIsRealyOn);
 		DHCPReceiverThreads = thread(&DHCPRawClient::Run, DHCPClients[NbrLeases]);
 		
 		IsReceiver = false;
@@ -250,11 +250,11 @@ int main(int argc, char* argv[])
 		{
 			if (bIsRealyOn)
 			{
-				DHCPClients[i] = DHCPRawClient::DHCPRawClient(i, IfIndex, bIsRealyOn, sClientFQDN, StrCustomOpt, RelayAddrs, SrvAddrs);
+				DHCPClients[i] = new DHCPRawClient(i, IfIndex, bIsRealyOn, sClientFQDN, StrCustomOpt, RelayAddrs, SrvAddrs);
 			}
 			else
 			{
-				DHCPClients[i] = DHCPRawClient::DHCPRawClient(i, IfIndex, bIsRealyOn, sClientFQDN, StrCustomOpt);
+				DHCPClients[i] = new DHCPRawClient(i, IfIndex, bIsRealyOn, sClientFQDN, StrCustomOpt);
 			}
 			DHCPClientsThreads.push_back(thread(&DHCPRawClient::Run, DHCPClients[i]));
 		}
@@ -269,8 +269,16 @@ int main(int argc, char* argv[])
 		cout << "main: EXCEPTION" << endl;
 	}
 
+	for (int i = 0; i < NbrLeases; i++)
+	{
+		delete DHCPClients[i];
+	}
+
 	g_DhcpReceiverAlone = true;
 	DHCPReceiverThreads.join();
+
+	delete DHCPClients[NbrLeases];
+
 
 	//Removing relay IP
 	if (bIsRealyOn)

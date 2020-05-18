@@ -1,25 +1,9 @@
 // DHCPRaw.h7
 #pragma once
 
-#ifdef _DEBUG
-#define DEBUG_PRINT printf
-#else
-#define DEBUG_PRINT
-#endif
-
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #define _CRT_NON_CONFORMING_WCSTOK
 #define _CRT_SECURE_NO_WARNINGS
-
-#define INI_NBR_SECTIONS 3
-#define INI_OPT_NBR_KEYS 7
-#define INI_GEN_NBR_KEYS 6
-
-#define DHCP_RETRANSMIT_TIMEOUT 5000
-#define DHCP_RETRANSMIT_COUNT 4
-
-#define DHCP_OPT_NBR_DISCVOVER 3
-#define DHCP_OPT_NBR_RELEASE 3
 
 #include <iostream>
 #include <winsock2.h>
@@ -41,13 +25,32 @@
 #include <unordered_set>
 #include <sstream>
 #include <ctime>
+#include "IpDhcpHeaders.h"
 
 #pragma comment(lib,"IPHLPAPI.lib")
 #pragma comment(lib,"ws2_32.lib") //winsock 2.2 library
 #pragma comment(lib,"winmm.lib")
 #pragma comment(lib,"Kernel32.lib")
 
-#include "IpDhcpHeaders.h"
+#ifdef _DEBUG
+#define DEBUG_PRINT printf
+#else
+#define DEBUG_PRINT
+#endif
+
+#define INI_NBR_SECTIONS 3
+#define INI_OPT_NBR_KEYS 7
+#define INI_GEN_NBR_KEYS 6
+
+#define DHCP_RETRANSMIT_TIMEOUT 5000
+#define DHCP_RETRANSMIT_COUNT 4
+
+#define DHCP_OPT_NBR_DISCVOVER 3
+#define DHCP_OPT_NBR_RELEASE 3
+
+#define FREE_IF_NOT_NULL(p)\
+	if ( p != NULL) \
+		free(p)
 
 using namespace std;
 
@@ -178,52 +181,56 @@ namespace DHCPRaw
 		{
 			;
 		}
-		DHCPRawLease(pDHCP_PACKET& pDhcpAck, pDHCP_PACKET& pDhcpRequest, int ClientId);
+		DHCPRawLease(pDHCP_PACKET& pDhcpAck, pDHCP_PACKET& pDhcpRequest, int ClientId){ SetLease(pDhcpAck, pDhcpRequest, ClientId);}
 		/////////////////////
 		/// Methods
 		/////////////////////
 		void print();
 		//
-		pDHCP_LEASE GetLease();
+		pDHCP_LEASE GetLease() { return m_pDhcpLease; }
 
 	private:
 		/////////////////////
 		/// attributes
 		/////////////////////	
-		pDHCP_LEASE m_pDhcpLease				= NULL;
-		char m_LocalAddrIp[INET_ADDRSTRLEN]		= { 0 };
-		char m_ServerAddrIp[INET_ADDRSTRLEN]	= { 0 };
+		pDHCP_LEASE m_pDhcpLease = NULL;
+		char m_LocalAddrIp[INET_ADDRSTRLEN] = { 0 };
+		char m_ServerAddrIp[INET_ADDRSTRLEN] = { 0 };
 
 		/////////////////////
 		/// Methods
 		/////////////////////
 		void SetLease(pDHCP_PACKET& pDhcpAck, pDHCP_PACKET& pDhcpRequest, int ClientId);
-		void DeleteLease();
 	};
 
 	//DHCPRawMessage
 	class DHCPRawPacket
 	{
-		public:
-			/////////////////////
-			/// Constructor
-			/////////////////////
-			DHCPRawPacket()
-			{
-				//
-			}
-			DHCPRawPacket(BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN], bool isRelayOn);
-			/////////////////////
-			/// Methods
-			/////////////////////
-			void print();
-			void Free();
+	public:
+		/////////////////////
+		/// Constructor
+		/////////////////////
+		DHCPRawPacket()
+		{
 			//
-			pDHCP_PACKET get_pDhcpPacket();
-			pIPv4_HDR get_pIPv4hdr();
-			pUDPv4_HDR get_pUDPv4hdr();
-			pDHCPv4_HDR get_pDhcpMsg();
-			//PDHCP_OPT*		get_pDhcpOpts();
+		}
+		DHCPRawPacket(BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN], bool isRelayOn);
+		/////////////////////
+		/// Methods
+		/////////////////////
+		void print();
+		//
+		pDHCP_PACKET get_pDhcpPacket(){ return m_pDhcpPacket;}
+		pIPv4_HDR get_pIPv4hdr(){ return m_pIPv4_HDR;}
+		pUDPv4_HDR get_pUDPv4hdr(){ return m_pUDPv4_HDR;}
+		pDHCPv4_HDR get_pDhcpMsg() 
+		{ 
+			if (m_pDhcpPacket != NULL)
+				return m_pDhcpPacket->m_pDhcpMsg;
+			else
+				return NULL;
+		}
+		//PDHCP_OPT*		get_pDhcpOpts();
 
 		private:
 			/////////////////////
@@ -258,12 +265,13 @@ namespace DHCPRaw
 			DHCPRawClient(int number, bool isReceiver, bool bIsRealyOn);
 			//Relay  DHCPRawClient Objects
 			DHCPRawClient(int number, int ifindex, bool isRelayOn, string ClientPrefixName, vector<string> StrCustomOpt, vector<string> RelayAddrs, vector<string> SrvAddrs);
+			~DHCPRawClient();
 			/////////////////////
 			/// Methods
 			/////////////////////
 			void print();
-			//
 			void Run();
+			int getClientNumber() { return m_ClientNumber; }
 
 		private:
 			/////////////////////
@@ -311,7 +319,6 @@ namespace DHCPRaw
 			DWORD SetStateTransition(int NewState);
 			DWORD build_dhpc_request();
 			//
-			int getClientNumber();
 			DWORD ConvertStrOptToDhpOpt(vector<string> StrCustomOpt);
 	};
 
