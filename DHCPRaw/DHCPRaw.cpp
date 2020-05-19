@@ -631,7 +631,7 @@ DWORD DHCPRawClient::DhcpClient()
 		}
 
 		//Build request if not already bound otherwise same request will be used for Renew and Rebinding
-		if ( m_StateTransition < StateTransition::Bound && m_StateTransition != StateTransition::Releasing )
+		if ( m_StateTransition < StateTransition::Bound || m_StateTransition == StateTransition::Releasing )
 			build_dhpc_request(m_pDhcpOutstandingRequest);
 
 		//Insert It 
