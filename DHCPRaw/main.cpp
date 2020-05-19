@@ -243,20 +243,18 @@ int main(int argc, char* argv[])
 	try
 	{
 		DHCPClients[NbrLeases] = new DHCPRawClient(NbrLeases, IsReceiver, bIsRealyOn);
-		DHCPReceiverThreads = thread(&DHCPRawClient::Run, DHCPClients[NbrLeases]);
+		DHCPReceiverThreads = thread(&DHCPRawClient::EntryPoint, DHCPClients[NbrLeases]);
 		
 		IsReceiver = false;
 		for (int i = 0; i < NbrLeases; i++)
 		{
 			if (bIsRealyOn)
-			{
 				DHCPClients[i] = new DHCPRawClient(i, IfIndex, bIsRealyOn, sClientFQDN, StrCustomOpt, RelayAddrs, SrvAddrs);
-			}
 			else
-			{
 				DHCPClients[i] = new DHCPRawClient(i, IfIndex, bIsRealyOn, sClientFQDN, StrCustomOpt);
-			}
-			DHCPClientsThreads.push_back(thread(&DHCPRawClient::Run, DHCPClients[i]));
+			
+			DHCPClientsThreads.push_back(thread(&DHCPRawClient::EntryPoint, DHCPClients[i]));
+			Sleep(50); // Let wait a bit before each Thread
 		}
 
 		for (thread& thread : DHCPClientsThreads) 
@@ -279,13 +277,12 @@ int main(int argc, char* argv[])
 
 	delete DHCPClients[NbrLeases];
 
-
 	//Removing relay IP
 	if (bIsRealyOn)
 	{
 		for (int i = 0; i < RelayAddrs.size(); i++)
 		{
-			cout << "Cleanup previously sadded relay addresses:" << RelayAddrs[i].c_str() << endl;
+			cout << "Cleanup previously added relay addresses:" << RelayAddrs[i].c_str() << endl;
 
 			CleanupAlternateIPv4OnInt(IfIndex, (char*)RelayAddrs[i].c_str());
 		}

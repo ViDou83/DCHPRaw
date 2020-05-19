@@ -20,6 +20,8 @@
 #include <string.h>
 #include <VersionHelpers.h>
 #include <stdarg.h>
+#include <ntsecapi.h>
+
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
@@ -59,6 +61,44 @@ extern HANDLE g_hSocketWaitEvent;
 extern CRITICAL_SECTION g_CS[DHCP_REPLY];
 extern bool g_DhcpReceiverAlone;
 extern bool g_DhcpAutoRelease;
+
+typedef struct _DHCP_PACKET {
+	pDHCPv4_HDR m_pDhcpMsg;
+	time_t m_ltime;
+	int m_iSizeOpt;
+	USHORT m_iNbrOpt;
+	int m_iRetry; //
+	PDHCP_OPT* m_ppDhcpOpt; // type->PDHCP_OTP
+	HANDLE hCompletionEvent;
+}DHCP_PACKET, * pDHCP_PACKET;
+
+typedef struct _DHCP_LEASE {
+	pDHCP_PACKET m_pDhcpPacketAck; //The ACK Received associated to the lease
+	time_t m_T1; //m_pDhcpPacketAck->m_ltime + lease_time/2
+	time_t m_T2; //m_pDhcpPacketAck->m_ltime + lease_time * (87.5/100)
+	time_t m_TEnd; //End of Lease
+	int m_iClientID;
+}DHCP_LEASE, * pDHCP_LEASE;
+
+struct Hash {
+public:
+	size_t operator()(const pDHCP_PACKET a) const {
+		return std::hash<int>()(a->m_pDhcpMsg->dhcp_xid);
+	}
+};
+
+struct Equal {
+public:
+	bool operator()(const pDHCP_PACKET a, const pDHCP_PACKET b) const
+	{
+		return a->m_pDhcpMsg->dhcp_xid == b->m_pDhcpMsg->dhcp_xid;
+	};
+};
+
+typedef std::unordered_set<pDHCP_PACKET, Hash, Equal> DhcpMsgQ;
+
+enum StateTransition { Init = 0, Selecting, Requesting, Bound, Renewing, Rebinding, Releasing };
+
 
 /* UTILS FUNCTIONS */
 pIPv4_HDR BuildIPv4Hdr(ULONG SrcIp, ULONG DstIp, USHORT ip_len, USHORT Proto);
@@ -128,47 +168,8 @@ timers T1, T2   ------------  send DHCPREQUEST      |               |
 		  Figure 5:  State-transition diagram for DHCP clients
 
 */
-
-typedef struct _DHCP_PACKET {
-	pDHCPv4_HDR m_pDhcpMsg;
-	time_t m_ltime;
-	int m_iSizeOpt;
-	USHORT m_iNbrOpt;
-	int m_iRetry; //
-	PDHCP_OPT* m_ppDhcpOpt; // type->PDHCP_OTP
-	HANDLE hCompletionEvent;	
-}DHCP_PACKET, * pDHCP_PACKET;
-
-typedef struct _DHCP_LEASE {
-	pDHCP_PACKET m_pDhcpPacketAck; //The ACK Received associated to the lease
-	time_t m_T1; //m_pDhcpPacketAck->m_ltime + lease_time/2
-	time_t m_T2; //m_pDhcpPacketAck->m_ltime + lease_time * (87.5/100)
-	time_t m_TEnd; //End of Lease
-	int m_iClientID;
-}DHCP_LEASE, * pDHCP_LEASE;
-
-struct Hash{
-public:
-	size_t operator()(const pDHCP_PACKET a) const {
-		return std::hash<int>()(a->m_pDhcpMsg->dhcp_xid);
-	}
-};
-
-struct Equal{
-public:
-	bool operator()(const pDHCP_PACKET a, const pDHCP_PACKET b) const
-	{
-		return a->m_pDhcpMsg->dhcp_xid == b->m_pDhcpMsg->dhcp_xid;
-	};
-};
-
-typedef std::unordered_set<pDHCP_PACKET, Hash, Equal> DhcpMsgQ;
-
-enum StateTransition { Init = 0, Selecting, Requesting, Bound, Renewing, Rebinding, Releasing };
-
 namespace DHCPRaw 
 {
-
 	//DHCPRawLease 
 	class DHCPRawLease
 	{
@@ -206,6 +207,21 @@ namespace DHCPRaw
 	//DHCPRawMessage
 	class DHCPRawPacket
 	{
+	private:
+		/////////////////////
+		/// attributes
+		/////////////////////	
+		pDHCP_PACKET m_pDhcpPacket;
+		//pDHCP_PACKET	m_pDHCPv4_HDR	= NULL;
+		pIPv4_HDR m_pIPv4_HDR;
+		pUDPv4_HDR m_pUDPv4_HDR;
+
+		/////////////////////
+		/// Methods
+		/////////////////////
+		// Create pIPV4 and UDPv4 hearder
+		DWORD SetDhcpMessage(BYTE dhcp_opcode, BYTE dhcp_flags, ULONG dhcp_gip, BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN]);
+	
 	public:
 		/////////////////////
 		/// Constructor
@@ -215,6 +231,8 @@ namespace DHCPRaw
 			//
 		}
 		DHCPRawPacket(BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN], bool isRelayOn);
+		~DHCPRawPacket();
+
 		/////////////////////
 		/// Methods
 		/////////////////////
@@ -225,27 +243,17 @@ namespace DHCPRaw
 		pUDPv4_HDR get_pUDPv4hdr(){ return m_pUDPv4_HDR;}
 		pDHCPv4_HDR get_pDhcpMsg() 
 		{ 
-			if (m_pDhcpPacket != NULL)
+
+			if (m_pDhcpPacket->m_pDhcpMsg != NULL)
 				return m_pDhcpPacket->m_pDhcpMsg;
 			else
 				return NULL;
 		}
 		//PDHCP_OPT*		get_pDhcpOpts();
-
-		private:
-			/////////////////////
-			/// attributes
-			/////////////////////	
-			pDHCP_PACKET m_pDhcpPacket	= NULL;
-			//pDHCP_PACKET	m_pDHCPv4_HDR	= NULL;
-			pIPv4_HDR m_pIPv4_HDR		= NULL;
-			pUDPv4_HDR m_pUDPv4_HDR	= NULL;
-
-			/////////////////////
-			/// Methods
-			/////////////////////
-			// Create pIPV4 and UDPv4 hearder
-			DWORD SetDhcpMessage(BYTE dhcp_opcode, BYTE dhcp_flags, ULONG dhcp_gip, BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN]);
+		void set_pDhcpPacket(pDHCP_PACKET DhcpPacket) 
+		{
+			this->m_pDhcpPacket = DhcpPacket;
+		}
 	};
 
 	//DHCPRawClient 
@@ -270,7 +278,7 @@ namespace DHCPRaw
 			/// Methods
 			/////////////////////
 			void print();
-			void Run();
+			void EntryPoint();
 			int getClientNumber() { return m_ClientNumber; }
 
 		private:
@@ -278,6 +286,8 @@ namespace DHCPRaw
 			/// attributes
 			/////////////////////			
 			enum StateTransition { Init = 0, Selecting, Requesting, Bound, Renewing, Rebinding, Releasing };
+
+			HANDLE m_hTimer = NULL;
 
 			BYTE m_MAC[ETHER_ADDR_LEN]{ 0,0,0,0,0,0 };
 			int	m_IfIndex = 0;
@@ -287,18 +297,20 @@ namespace DHCPRaw
 			bool m_IsReceiver = false;
 			bool m_IsOfferReceive = false;
 			bool m_gRelayMode = FALSE;
+			
 			vector<string> m_RelayAddrs;
 			vector<string> m_SrvAddrs;
+			vector<PDHCP_OPT> m_pCustomDhcpOpts;
+
 			string m_ClientNamePrefix;
-			HANDLE m_hTimer = NULL;
-			DHCPRawPacket m_DhcpRawPacket;
+			DHCPRawPacket *m_DHCPRawPacket;
+
 			DHCPRawLease m_DhcpRawLease;
 			//pDHCP_PACKET is the struct enqueued to the hashtable... DHCP Sender/receiver will then consume it.
-			pDHCP_PACKET m_pDhcpRequest	= NULL;
+			pDHCP_PACKET m_pDhcpOutstandingRequest = NULL;
 			pDHCP_PACKET m_pDhcpOffer	= NULL;
 			pDHCP_PACKET m_pDhcpAck		= NULL;
 			pDHCP_LEASE	 m_pDhcpLease	= NULL;
-			vector<PDHCP_OPT> m_pCustomDhcpOpts;
 			/////////////////////
 			/// Methods
 			/////////////////////
@@ -314,10 +326,11 @@ namespace DHCPRaw
 			DWORD DhcpClient();
 			DWORD DhcpReceiver();
 			//
-			DWORD SendDhcpRequest();
+			DWORD SendDhcpRequest(pDHCP_PACKET DhcpPacket, pIPv4_HDR myIPv4Hdr, pUDPv4_HDR myUDPv4hdr);
 			DWORD SetDHCPRequestCompletionEvent(int bucket, pDHCP_PACKET Reply);
 			DWORD SetStateTransition(int NewState);
-			DWORD build_dhpc_request();
+			DWORD build_dhpc_request(pDHCP_PACKET DhcpPacket);
+			bool AcceptOffer(pDHCP_PACKET m_pDhcpOffer);
 			//
 			DWORD ConvertStrOptToDhpOpt(vector<string> StrCustomOpt);
 	};

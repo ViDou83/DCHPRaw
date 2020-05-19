@@ -1,7 +1,7 @@
 #include "DHCPRaw.h"
 
 typedef struct DATA_WORKER_THREAD {
-	int ifIndex;
+int ifIndex;
 } DATA_WORKER_THREAD, * PDATA_WORKER_THREAD;
 
 
@@ -11,7 +11,7 @@ typedef struct DATA_WORKER_THREAD {
 /////////////////////////
 //// PACKET HEADERS FUNCTIONS
 ////////
-pIPv4_HDR BuildIPv4Hdr(ULONG SrcIp, ULONG DstIp, USHORT ip_len, USHORT Proto) 
+pIPv4_HDR BuildIPv4Hdr(ULONG SrcIp, ULONG DstIp, USHORT ip_len, USHORT Proto)
 {
 	pIPv4_HDR ipv4hdr = (pIPv4_HDR)MALLOC(sizeof(IPv4_HDR));
 
@@ -29,7 +29,7 @@ pIPv4_HDR BuildIPv4Hdr(ULONG SrcIp, ULONG DstIp, USHORT ip_len, USHORT Proto)
 	return ipv4hdr;
 }
 
-pUDPv4_HDR BuildUDPv4Hdr(USHORT SrcPort, USHORT DstPort, USHORT udp_len) 
+pUDPv4_HDR BuildUDPv4Hdr(USHORT SrcPort, USHORT DstPort, USHORT udp_len)
 {
 	pUDPv4_HDR udphdr = (pUDPv4_HDR)MALLOC(sizeof(UDPv4_HDR));
 
@@ -148,7 +148,7 @@ USHORT build_option_81(char* FQDN, PDHCP_OPT DhcpOpt)
 }
 
 
-void DumpDhcpMsg(pDHCPv4_HDR DhcpPacket) 
+void DumpDhcpMsg(pDHCPv4_HDR DhcpPacket)
 {
 	char dhcp_cip[INET_ADDRSTRLEN];
 	char dhcp_yip[INET_ADDRSTRLEN];
@@ -191,7 +191,7 @@ DWORD MyEcho(char* strIpAddr)
 	DWORD ReplySize = 0;
 
 	DEBUG_PRINT("--> MyEcho(): ping %s\n", strIpAddr);
-	ulIpAddr= inet_addr(strIpAddr);
+	ulIpAddr = inet_addr(strIpAddr);
 	if (ulIpAddr == INADDR_NONE)
 	{
 		printf("usage: %s IP address\n", strIpAddr);
@@ -221,9 +221,9 @@ DWORD MyEcho(char* strIpAddr)
 		struct in_addr ReplyAddr;
 		ReplyAddr.S_un.S_addr = pEchoReply->Address;
 		DEBUG_PRINT("\tSent icmp message to %s\n", strIpAddr);
-		
+
 		DEBUG_PRINT("MyEcho(): Received %ld icmp message response\n", dwRetVal);
-		
+
 		DEBUG_PRINT("\tInformation from the first response:\n");
 		DEBUG_PRINT("\t  Received from %s\n", inet_ntoa(ReplyAddr));
 		DEBUG_PRINT("\t  Status = %ld\n",
@@ -340,7 +340,7 @@ void CleanupAlternateIPv4OnInt(int IfIndex, char* IPv4) {
 	DEBUG_PRINT("<-- CleanupAlternateIPv4OnInt()\n");
 }
 
-DWORD GetAdapterMacByIndex(int IfIndex, BYTE (&MAC)[ETHER_ADDR_LEN])
+DWORD GetAdapterMacByIndex(int IfIndex, BYTE(&MAC)[ETHER_ADDR_LEN])
 {
 	PIP_ADAPTER_INFO pAdapterInfo;
 	PIP_ADAPTER_INFO pAdapter = NULL;
@@ -390,7 +390,7 @@ DWORD GetAdapterMacByIndex(int IfIndex, BYTE (&MAC)[ETHER_ADDR_LEN])
 }
 
 /**/
-DWORD ListAllAdapters() 
+DWORD ListAllAdapters()
 {
 	PIP_ADAPTER_INFO pAdapterInfo;
 	PIP_ADAPTER_INFO pAdapter = NULL;
@@ -404,7 +404,7 @@ DWORD ListAllAdapters()
 
 	ULONG ulOutBufLen = sizeof(IP_ADAPTER_INFO);
 	pAdapterInfo = (IP_ADAPTER_INFO*)MALLOC(sizeof(IP_ADAPTER_INFO));
-	if (pAdapterInfo == NULL) 
+	if (pAdapterInfo == NULL)
 	{
 		printf("Error allocating memory needed to call GetAdaptersinfo\n");
 		return EXIT_FAILURE;
@@ -412,7 +412,7 @@ DWORD ListAllAdapters()
 
 	// Make an initial call to GetAdaptersInfo to get
 	// the necessary size into the ulOutBufLen variable
-	if (GetAdaptersInfo(pAdapterInfo, &ulOutBufLen) == ERROR_BUFFER_OVERFLOW) 
+	if (GetAdaptersInfo(pAdapterInfo, &ulOutBufLen) == ERROR_BUFFER_OVERFLOW)
 	{
 		FREE(pAdapterInfo);
 		pAdapterInfo = (IP_ADAPTER_INFO*)MALLOC(ulOutBufLen);
@@ -422,7 +422,7 @@ DWORD ListAllAdapters()
 		}
 	}
 
-	if ((dwRetVal = GetAdaptersInfo(pAdapterInfo, &ulOutBufLen)) == NO_ERROR) 
+	if ((dwRetVal = GetAdaptersInfo(pAdapterInfo, &ulOutBufLen)) == NO_ERROR)
 	{
 		pAdapter = pAdapterInfo;
 		while (pAdapter) {
@@ -477,7 +477,7 @@ DWORD ListAllAdapters()
 			printf("\tGateway: \t%s\n", pAdapter->GatewayList.IpAddress.String);
 			printf("\t***\n");
 
-			if (pAdapter->DhcpEnabled) 
+			if (pAdapter->DhcpEnabled)
 			{
 				printf("\tDHCP Enabled: Yes\n");
 				printf("\t  DHCP Server: \t%s\n",
@@ -488,7 +488,7 @@ DWORD ListAllAdapters()
 				error = _localtime32_s(&newtime, (__time32_t*)&pAdapter->LeaseObtained);
 				if (error)
 					printf("Invalid Argument to _localtime32_s\n");
-				else 
+				else
 				{
 					// Convert to an ASCII representation 
 					error = asctime_s(buffer, 32, &newtime);
@@ -529,7 +529,7 @@ DWORD ListAllAdapters()
 			printf("\n");
 		}
 	}
-	else 
+	else
 	{
 		printf("GetAdaptersInfo failed with error: %d\n", dwRetVal);
 	}
@@ -541,13 +541,18 @@ DWORD ListAllAdapters()
 
 LARGE_INTEGER UnixTimeToFileTime(time_t time)
 {
+	DEBUG_PRINT("-->UnixTimeToFileTime:\n");
+	
 	LARGE_INTEGER n;
 	n.QuadPart = (time + 11644473600ULL) * 10000000ULL;
+
+	DEBUG_PRINT("<--UnixTimeToFileTime:\n");
 	return n;
 }
 
-DWORD WaitOnTimer(HANDLE hTimer, time_t time, const char* Msg) {
-
+DWORD WaitOnTimer(HANDLE hTimer, time_t time, const char* Msg) 
+{
+	DEBUG_PRINT("-->WaitOnTimer:\n");
 	LARGE_INTEGER liDueTime = UnixTimeToFileTime(time);
 
 	//Wait T1 to Expire
@@ -562,9 +567,10 @@ DWORD WaitOnTimer(HANDLE hTimer, time_t time, const char* Msg) {
 	// Wait for the timer.
 	if (WaitForSingleObject(hTimer, INFINITE) != WAIT_OBJECT_0)
 		printf("WaitForSingleObject failed (%d)\n", GetLastError());
-	else 
+	else
 		DEBUG_PRINT("Wait event signaled\n");
 
+	DEBUG_PRINT("<--WaitOnTimer:\n");
 	return EXIT_SUCCESS;
 }
 
@@ -585,10 +591,10 @@ bool CheckValidIpAddr(string IpAddr)
 
 	for (int i = 0; i < tokens.size(); i++)
 	{
-		if (tokens[i].size() > 3 )
+		if (tokens[i].size() > 3)
 			return false;
 
-		for (const char c : tokens[i]) 
+		for (const char c : tokens[i])
 		{
 			if (!isdigit(c))
 				return false;
@@ -601,3 +607,4 @@ bool CheckValidIpAddr(string IpAddr)
 
 	return true;
 }
+
