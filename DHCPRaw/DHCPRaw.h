@@ -274,6 +274,7 @@ namespace DHCPRaw
 			//Relay  DHCPRawClient Objects
 			DHCPRawClient(int number, int ifindex, bool isRelayOn, string ClientPrefixName, vector<string> StrCustomOpt, vector<string> RelayAddrs, vector<string> SrvAddrs);
 			~DHCPRawClient();
+			
 			/////////////////////
 			/// Methods
 			/////////////////////
@@ -325,6 +326,7 @@ namespace DHCPRaw
 			*/
 			DWORD DhcpClient();
 			DWORD DhcpReceiver();
+			DWORD DhcpClientWaitOnTimer();
 			//
 			DWORD SendDhcpRequest(pDHCP_PACKET DhcpPacket, pIPv4_HDR myIPv4Hdr, pUDPv4_HDR myUDPv4hdr);
 			DWORD SetDHCPRequestCompletionEvent(int bucket, pDHCP_PACKET Reply);
