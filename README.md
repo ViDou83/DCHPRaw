@@ -11,6 +11,7 @@ Version: 1.0
 Usage:  regular mode:   DhcpRaw -i {ifIndex} -n {NbrLeasesWanted} -a
         relay mode  :   DhcpRaw -i {ifIndex} -n {NbrLeasesWanted} -r {RelayAddr} -s {DHCPSrvAddr} -a
 
+`
 DchpRaw.exe -h
 Usage:  
         
@@ -39,8 +40,10 @@ Usage:
         -paramreqlist: Specify paramaters request list (DHCP opt 55) in Hex format separate by ,;:/.
                 Ex SubnetMask,DomainName,Router,NetBIOSopts,DomainNameServer::
                         -paramreqlist 0x1,0xf,0x3,0x2c,0x2e,0x2f,0x6
-
+`
 Ex: 
+
+`
 PS C:\Users\Administrator\Downloads> .\DHCPRaw.exe -i 11 -n 1 -opt 0x52,0x6,0x5,0x4,0xc0,0xa8,0x64,0x0 -r 172.16.255.1 -s 10.0.0.100 -a
 main(): Relay IPv4 address 172.16.255.1 was successfully added.
 main(): waiting till RelayAddr=172.16.255.1 is reachabled
@@ -53,6 +56,6 @@ LeaseGranted:
         T1:Thu May 21 22:09:05 2020
         T2:Thu May 21 22:09:50 2020
 DHCPRawClient::DhcpClient(): CLient:0 will send DHCPRelease in 10 secs.
-
+`
  # Author : 
  vincent.douhet@gmail.com / vidou@microsoft.com
