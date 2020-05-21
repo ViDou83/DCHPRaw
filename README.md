@@ -2,14 +2,13 @@
 DCHP Raw socket C++ (broadcast mode, relay mode and adding customer DHCP options)
 
 This progam allows to simulate the behavior of a DHCP Client and DHCP relays. 
-This program can be only be run on Windows Server SKU as RAW socket support is needed.
+This program can be only be executed on Windows Server SKU as RAW socket support is needed.
 
 DhcpRaw:
 Version: 1.0
-Author: Vincent Douhet <vidou@microsoft.com>
 ----------------------------------------------------------------
 Usage:  regular mode:   DhcpRaw -i {ifIndex} -n {NbrLeasesWanted} -a
-        Relay mode:     DhcpRaw -i {ifIndex} -n {NbrLeasesWanted} -r  {AddrIP} -s {AddrIP} -a
+        relay mode  :   DhcpRaw -i {ifIndex} -n {NbrLeasesWanted} -r {RelayAddr} -s {DHCPSrvAddr} -a
 ----------------------------------------------------------------
         -i: Specify the ifIndex of the NIC where you want to send out DHCP msg (please run DHCPRaw.exe -d
         -n: Number of DHCP leases you want to request (One DHCPClient by lease => many threads)
@@ -25,3 +24,5 @@ Usage:  regular mode:   DhcpRaw -i {ifIndex} -n {NbrLeasesWanted} -a
         -paramreqlist: Specify paramaters request list (DHCP opt 55) in Hex format separate by ,;:/.
                 Ex SubnetMask,DomainName,Router,NetBIOSopts,DomainNameServer::
                         -paramreqlist 0x1,0xf,0x3,0x2c,0x2e,0x2f,0x6
+
+Author : vincent.douhet@gmail.com / vidou@microsoft.com
