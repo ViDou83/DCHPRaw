@@ -47,7 +47,9 @@
 #define DHCP_RETRANSMIT_TIMEOUT 5000
 #define DHCP_RETRANSMIT_COUNT 4
 
-#define DHCP_OPT_NBR_DISCVOVER 3
+
+#define DHCP_OPT_NBR_DISCVOVER 4
+
 #define DHCP_OPT_NBR_RELEASE 3
 
 #define FREE_IF_NOT_NULL(p)\
@@ -108,6 +110,7 @@ USHORT build_option53(USHORT MsgType, PDHCP_OPT DhcpOpt);
 USHORT build_option_55(vector<int> ParameterRequestList, PDHCP_OPT DhcpOpt);
 USHORT build_option_81(char* FQDN, PDHCP_OPT DhcpOpt);
 USHORT build_option_61(PUCHAR MacAddr, PDHCP_OPT DhcpOpt);
+USHORT build_dhcp_option(BYTE OptionType, BYTE OptionLength, PBYTE OptionValue, PDHCP_OPT pDhcpOpt);
 bool IsIPv4AddrPlumbebOnAdapter(int IfIndex, char* IPv4);
 DWORD ListAllAdapters();
 DWORD MyEcho(char* IpAddr);
@@ -268,11 +271,11 @@ namespace DHCPRaw
 				;
 			}
 			//Regular DHCPRawClient Objects
-			DHCPRawClient(int number, int ifindex, bool isRelayOn, string ClientPrefixName, vector<string> StrCustomOpt);
+			DHCPRawClient(int number, int ifindex, bool isRelayOn, string ClientPrefixName, vector<string> StrCustomOpt, vector<int> ParamReqList);
 			//Sender DHCPRawClient Objects
 			DHCPRawClient(int number, bool isReceiver, bool bIsRealyOn);
 			//Relay  DHCPRawClient Objects
-			DHCPRawClient(int number, int ifindex, bool isRelayOn, string ClientPrefixName, vector<string> StrCustomOpt, vector<string> RelayAddrs, vector<string> SrvAddrs);
+			DHCPRawClient(int number, int ifindex, bool isRelayOn, string ClientPrefixName, vector<string> StrCustomOpt, vector<int> ParamReqList, vector<string> RelayAddrs, vector<string> SrvAddrs);
 			~DHCPRawClient();
 			
 			/////////////////////
@@ -301,6 +304,8 @@ namespace DHCPRaw
 			
 			vector<string> m_RelayAddrs;
 			vector<string> m_SrvAddrs;
+
+			vector<int> m_ParamReqList;
 			vector<PDHCP_OPT> m_pCustomDhcpOpts;
 
 			string m_ClientNamePrefix;

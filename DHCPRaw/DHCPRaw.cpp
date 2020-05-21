@@ -1,9 +1,7 @@
 #include "DHCPRaw.h"
 
-#define DHCP_OPT_NBR_DISCVOVER 3
 
 DhcpMsgQ DHCPOutstandingMsgQ[DHCP_REPLY];
-bool g_bRelayMode = false;
 
 namespace DHCPRaw
 {
@@ -298,7 +296,7 @@ void DHCPRawLease::print()
 /////////////////////////////
 
 //DHCPRawClient regular mode (BROADCAST)
-DHCPRawClient::DHCPRawClient(int number, int ifindex, bool isRelayOn, string ClientPrefixName, vector<string> StrCustomOpt)
+DHCPRawClient::DHCPRawClient(int number, int ifindex, bool isRelayOn, string ClientPrefixName, vector<string> StrCustomOpt, vector<int> ParamReqList)
 {
 	DEBUG_PRINT("-->DHCPRawClient::DHCPRawClient() ctor m_ClientNumber:%d\n", number);
 	m_ClientNumber = number;
@@ -311,6 +309,7 @@ DHCPRawClient::DHCPRawClient(int number, int ifindex, bool isRelayOn, string Cli
 	m_SrvAddrs.push_back("255.255.255.255");
 	m_ClientNamePrefix = ClientPrefixName + to_string(m_ClientNumber);
 
+	m_ParamReqList = ParamReqList;
 
 	// setMAc from adapter with ifIndex = m_IfIndex;
 	if (setMAC() == EXIT_FAILURE)
@@ -335,7 +334,7 @@ DHCPRawClient::DHCPRawClient(int number, int ifindex, bool isRelayOn, string Cli
 }
 
 //DHCPRawClient RELAY mode
-DHCPRawClient::DHCPRawClient(int number, int ifindex, bool isRelayOn, string ClientPrefixName, vector<string> StrCustomOpt,
+DHCPRawClient::DHCPRawClient(int number, int ifindex, bool isRelayOn, string ClientPrefixName, vector<string> StrCustomOpt, vector<int> ParamReqList,
 	vector<string> RelayAddrs, vector<string> SrvAddrs)
 {
 	DEBUG_PRINT("-->DHCPRawClient::DHCPRawClient() ctor m_ClientNumber:%d\n", number);
@@ -360,6 +359,8 @@ DHCPRawClient::DHCPRawClient(int number, int ifindex, bool isRelayOn, string Cli
 	m_RelayAddrs = RelayAddrs;
 	m_SrvAddrs = SrvAddrs;
 
+	m_ParamReqList = ParamReqList;
+
 	// Create an unnamed waitable timer for T1 and T2 lease.
 	m_hTimer = CreateWaitableTimer(NULL, TRUE, NULL);
 	if (NULL == m_hTimer)
@@ -367,6 +368,9 @@ DHCPRawClient::DHCPRawClient(int number, int ifindex, bool isRelayOn, string Cli
 		throw "DHCPRawLease::DHCPRawLeaseCreateWaitableTimer failed";
 	}
 
+
+
+	//Validating and extracting Custom Opt
 	if (ConvertStrOptToDhpOpt(StrCustomOpt) == EXIT_FAILURE)
 		m_numberOfCustomOpts = 0;
 
@@ -585,6 +589,7 @@ DWORD DHCPRawClient::DhcpClient()
 
 	do
 	{
+		//Grabbing DHCP Msg, IP and UDP headers
 		m_pDhcpOutstandingRequest = m_DHCPRawPacket->get_pDhcpPacket();
 		myIPv4Hdr = m_DHCPRawPacket->get_pIPv4hdr();
 		myUDPv4hdr = m_DHCPRawPacket->get_pUDPv4hdr();
@@ -744,11 +749,18 @@ DWORD DHCPRawClient::build_dhpc_request(pDHCP_PACKET DhcpPacket)
 	USHORT iDhcpOpt = 0;
 	int DhcpMsgType = DHCP_MSGREQUEST;
 	//TODO Let user custom this from command line with a vector<byte>
-	vector<int> rgb_ParameterRequestList = { DHCP_SUBNETMASK, DHCP_BROADCASTADDR, DHCP_ROUTER, DHCP_DOMAINNAME, DHCP_DNS };
+	
+	//vector<int> rgb_ParameterRequestList =
+	if (m_ParamReqList.size() == 0)
+	{
+		m_ParamReqList = { DHCP_SUBNETMASK, DHCP_BROADCASTADDR, DHCP_ROUTER, DHCP_DOMAINNAME, DHCP_DNS };
+	}
+ 
 	pDHCP_PACKET pDhcpReply = NULL;
 	PDHCP_OPT pDhcpOpt_Current = NULL;
 	pIPv4_HDR myIPv4Hdr = NULL;
 	PDHCP_OPT* ppDhcpPreviousOpt = NULL;
+
 	int PreviousOptNbr = 0;
 
 	if (m_StateTransition == StateTransition::Init)
@@ -808,10 +820,13 @@ DWORD DHCPRawClient::build_dhpc_request(pDHCP_PACKET DhcpPacket)
 		iDhcpOptSize += build_option53(DHCP_MSGDISCOVER, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
 		iDhcpOpt++;
 
+		iDhcpOptSize += build_dhcp_option(DHCP_HOSTNAME, m_ClientNamePrefix.size(), (PBYTE)m_ClientNamePrefix.c_str(), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
+		iDhcpOpt++;
+
 		iDhcpOptSize += build_option_61(DhcpPacket->m_pDhcpMsg->dhcp_chaddr, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
 		iDhcpOpt++;
 		
-		iDhcpOptSize += build_option_55(rgb_ParameterRequestList, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
+		iDhcpOptSize += build_option_55(m_ParamReqList, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
 		iDhcpOpt++;
 	}
 	else if (this->m_StateTransition == StateTransition::Releasing)
@@ -819,6 +834,9 @@ DWORD DHCPRawClient::build_dhpc_request(pDHCP_PACKET DhcpPacket)
 		DEBUG_PRINT("--> DHCPRawClient::build_dhpc_request RELEASE OptNbr:%d\n", iNbrOpt);
 
 		iDhcpOptSize += build_option53(DHCP_MSGRELEASE, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
+		iDhcpOpt++;
+
+		iDhcpOptSize += build_dhcp_option(DHCP_HOSTNAME, m_ClientNamePrefix.size(), (PBYTE)m_ClientNamePrefix.c_str(), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
 		iDhcpOpt++;
 
 		iDhcpOptSize += build_option50_54(DHCP_SERVIDENT, htonl(pDhcpReply->m_pDhcpMsg->dhcp_sip), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
@@ -842,12 +860,13 @@ DWORD DHCPRawClient::build_dhpc_request(pDHCP_PACKET DhcpPacket)
 		for (int i = 0; i < pDhcpReply->m_iNbrOpt; i++)
 		{
 			//Get the domain name from the DHCP Reply
-			if (pDhcpReply->m_ppDhcpOpt[i]->OptionType == DHCP_DOMAINNAME)
+			switch (pDhcpReply->m_ppDhcpOpt[i]->OptionType)
 			{
-				pchDomainName = string((const char*)pDhcpReply->m_ppDhcpOpt[i]->OptionValue, pDhcpReply->m_ppDhcpOpt[i]->OptionLength);
+			case DHCP_DOMAINNAME:
+					pchDomainName = string((const char*)pDhcpReply->m_ppDhcpOpt[i]->OptionValue, pDhcpReply->m_ppDhcpOpt[i]->OptionLength);
+					break;
 			}
 		}
-
 		DEBUG_PRINT("--> DHCPRawClient::build_dhpc_request Request Copying previous OptNbr:%d\n", PreviousOptNbr);
 		for (int i = 0; i < PreviousOptNbr; i++)
 		{
@@ -868,11 +887,11 @@ DWORD DHCPRawClient::build_dhpc_request(pDHCP_PACKET DhcpPacket)
 		iDhcpOptSize += build_option50_54(DHCP_REQUESTEDIP, htonl(pDhcpReply->m_pDhcpMsg->dhcp_yip), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
 		iDhcpOpt++;
 
-		DEBUG_PRINT("OPTION81: %s\n", pcClientFQDN.c_str());
-
-		iDhcpOptSize += build_option_81((char*)pcClientFQDN.c_str(), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
-		iDhcpOpt++;
-
+		if (pchDomainName.size() > 0)
+		{
+			iDhcpOptSize += build_option_81((char*)pcClientFQDN.c_str(), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
+			iDhcpOpt++;
+		}
 		// adding srv identity
 		if (pDhcpReply->m_pDhcpMsg->dhcp_sip > 0)
 		{

@@ -127,6 +127,8 @@ see https://technet.microsoft.com/en-us/library/cc959284.aspx
 */
 USHORT build_option_81(char* FQDN, PDHCP_OPT DhcpOpt)
 {
+	DEBUG_PRINT("-->build_option_81: %s\n", FQDN);
+
 	DhcpOpt->OptionType = DHCP_FQDN;
 	DhcpOpt->OptionLength = (BYTE)strlen((const char*)FQDN) + 3;
 	DhcpOpt->OptionValue = (PBYTE)malloc(sizeof(BYTE) * DhcpOpt->OptionLength);
@@ -135,8 +137,6 @@ USHORT build_option_81(char* FQDN, PDHCP_OPT DhcpOpt)
 	USHORT rcode1 = 0;
 	USHORT rcode2 = 0;
 
-	//flags |= FQDN_N_FLAG;
-
 	flags = FQDN_S_FLAG;
 
 	DhcpOpt->OptionValue[0] = (BYTE)flags;
@@ -144,6 +144,8 @@ USHORT build_option_81(char* FQDN, PDHCP_OPT DhcpOpt)
 	DhcpOpt->OptionValue[2] = (BYTE)rcode2;
 
 	memcpy(&DhcpOpt->OptionValue[3], FQDN, strlen((const char*)FQDN));
+	DEBUG_PRINT("<--build_option_81:\n");
+
 	return DhcpOpt->OptionLength + 2;
 }
 
