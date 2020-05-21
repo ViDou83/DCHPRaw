@@ -53,11 +53,17 @@ main(): waiting till RelayAddr=172.16.255.1 is reachabled
 DHCPRawClient::DhcpClient() CLient:0 is starting
 
 LeaseGranted:
+
         ClientID:0
+
         MyIP:192.168.100.60
+
         ServerIP:10.0.0.100
+        
         LeaseObtened:Thu May 21 22:08:05 2020
+        
         T1:Thu May 21 22:09:05 2020
+        
         T2:Thu May 21 22:09:50 2020
 
 DHCPRawClient::DhcpClient(): CLient:0 will send DHCPRelease in 10 secs.
