@@ -257,7 +257,7 @@ int main(int argc, char* argv[])
 	try
 	{
 		DHCPClients[NbrLeases] = new DHCPRawClient(NbrLeases, IsReceiver, bIsRealyOn);
-		DHCPReceiverThreads = thread(&DHCPRawClient::EntryPoint, DHCPClients[NbrLeases]);
+		DHCPReceiverThreads = thread(&DHCPRawClient::EntryPoint_DHCPClient, DHCPClients[NbrLeases]);
 		
 		IsReceiver = false;
 		for (int i = 0; i < NbrLeases; i++)
@@ -267,7 +267,7 @@ int main(int argc, char* argv[])
 			else
 				DHCPClients[i] = new DHCPRawClient(i, IfIndex, bIsRealyOn, sClientFQDN, StrCustomOpt, ParamReqList);
 			
-			DHCPClientsThreads.push_back(thread(&DHCPRawClient::EntryPoint, DHCPClients[i]));
+			DHCPClientsThreads.push_back(thread(&DHCPRawClient::EntryPoint_DHCPClient, DHCPClients[i]));
 			Sleep(50); // Let wait a bit before each Thread
 		}
 

@@ -11,7 +11,7 @@ int ifIndex;
 /////////////////////////
 //// PACKET HEADERS FUNCTIONS
 ////////
-pIPv4_HDR BuildIPv4Hdr(ULONG SrcIp, ULONG DstIp, USHORT ip_len, USHORT Proto)
+pIPv4_HDR Build_IPv4Hdr(ULONG SrcIp, ULONG DstIp, USHORT ip_len, USHORT Proto)
 {
 	pIPv4_HDR ipv4hdr = (pIPv4_HDR)MALLOC(sizeof(IPv4_HDR));
 
@@ -29,7 +29,7 @@ pIPv4_HDR BuildIPv4Hdr(ULONG SrcIp, ULONG DstIp, USHORT ip_len, USHORT Proto)
 	return ipv4hdr;
 }
 
-pUDPv4_HDR BuildUDPv4Hdr(USHORT SrcPort, USHORT DstPort, USHORT udp_len)
+pUDPv4_HDR Build_UDPv4Hdr(USHORT SrcPort, USHORT DstPort, USHORT udp_len)
 {
 	pUDPv4_HDR udphdr = (pUDPv4_HDR)MALLOC(sizeof(UDPv4_HDR));
 
@@ -44,7 +44,7 @@ pUDPv4_HDR BuildUDPv4Hdr(USHORT SrcPort, USHORT DstPort, USHORT udp_len)
 /////////////////////////
 //// DHCP HELPERS FUNCTIONS
 ////////
-USHORT build_option50_54(USHORT OptionType, ULONG RequestedIP, PDHCP_OPT DhcpOpt)
+USHORT Build_DHCPOpt_50_54(USHORT OptionType, ULONG RequestedIP, PDHCP_OPT DhcpOpt)
 {
 
 	DhcpOpt->OptionType = (BYTE)OptionType;
@@ -60,7 +60,7 @@ USHORT build_option50_54(USHORT OptionType, ULONG RequestedIP, PDHCP_OPT DhcpOpt
 	return DhcpOpt->OptionLength + 2;
 }
 
-USHORT build_option53(USHORT MsgType, PDHCP_OPT DhcpOpt)
+USHORT Build_DHCPOpt_53(USHORT MsgType, PDHCP_OPT DhcpOpt)
 {
 	if (MsgType >= 1 && MsgType <= 8)
 	{
@@ -76,7 +76,7 @@ USHORT build_option53(USHORT MsgType, PDHCP_OPT DhcpOpt)
 	return DhcpOpt->OptionLength + 2;
 }
 
-USHORT build_option_55(vector<int> ParameterRequestList, PDHCP_OPT DhcpOpt)
+USHORT Build_DHCPOpt_55(vector<int> ParameterRequestList, PDHCP_OPT DhcpOpt)
 {
 	DhcpOpt->OptionType = DHCP_PARAMREQUEST;
 	DhcpOpt->OptionLength = ParameterRequestList.size();
@@ -92,7 +92,7 @@ USHORT build_option_55(vector<int> ParameterRequestList, PDHCP_OPT DhcpOpt)
 /*
 * Builds DHCP option61 on dhopt_buff
 */
-USHORT build_option_61(PUCHAR MacAddr, PDHCP_OPT DhcpOpt)
+USHORT Build_DHCPOpt_61(PUCHAR MacAddr, PDHCP_OPT DhcpOpt)
 {
 	DhcpOpt->OptionType = DHCP_CLIENTID;
 	DhcpOpt->OptionLength = ETHER_ADDR_LEN + 1;
@@ -108,7 +108,7 @@ USHORT build_option_61(PUCHAR MacAddr, PDHCP_OPT DhcpOpt)
 /*
 * Builds DHCP option61 on dhopt_buff
 */
-USHORT build_dhcp_option(BYTE OptionType, BYTE OptionLength, PBYTE OptionValue, PDHCP_OPT pDhcpOpt)
+USHORT Build_DHCPOpt(BYTE OptionType, BYTE OptionLength, PBYTE OptionValue, PDHCP_OPT pDhcpOpt)
 {
 
 	pDhcpOpt->OptionType = OptionType;
@@ -125,7 +125,7 @@ USHORT build_dhcp_option(BYTE OptionType, BYTE OptionLength, PBYTE OptionValue, 
 * Builds DHCP option81 on dhopt_buff
 see https://technet.microsoft.com/en-us/library/cc959284.aspx
 */
-USHORT build_option_81(char* FQDN, PDHCP_OPT DhcpOpt)
+USHORT Build_DHCPOpt_81(char* FQDN, PDHCP_OPT DhcpOpt)
 {
 	DEBUG_PRINT("-->build_option_81: %s\n", FQDN);
 
@@ -149,7 +149,7 @@ USHORT build_option_81(char* FQDN, PDHCP_OPT DhcpOpt)
 	return DhcpOpt->OptionLength + 2;
 }
 
-DWORD AllocateRoomForOpts(PDHCP_OPT*& ppDhcpOpts, int iNbrOpt)
+DWORD Alloc_DHCPOpts(PDHCP_OPT*& ppDhcpOpts, int iNbrOpt)
 {
 	DEBUG_PRINT("-->AllocateRoomForOpts:\n");
 

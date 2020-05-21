@@ -99,18 +99,18 @@ public:
 
 typedef std::unordered_set<pDHCP_PACKET, Hash, Equal> DhcpMsgQ;
 
-enum StateTransition { Init = 0, Selecting, Requesting, Bound, Renewing, Rebinding, Releasing };
+enum TransitionState { Init = 0, Selecting, Requesting, Bound, Renewing, Rebinding, Releasing };
 
 
 /* UTILS FUNCTIONS */
-pIPv4_HDR BuildIPv4Hdr(ULONG SrcIp, ULONG DstIp, USHORT ip_len, USHORT Proto);
-pUDPv4_HDR BuildUDPv4Hdr(USHORT SrcPort, USHORT DstPort, USHORT udp_len);
-USHORT build_option50_54(USHORT OptionType, ULONG RequestedIP, PDHCP_OPT DhcpOpt);
-USHORT build_option53(USHORT MsgType, PDHCP_OPT DhcpOpt);
-USHORT build_option_55(vector<int> ParameterRequestList, PDHCP_OPT DhcpOpt);
-USHORT build_option_81(char* FQDN, PDHCP_OPT DhcpOpt);
-USHORT build_option_61(PUCHAR MacAddr, PDHCP_OPT DhcpOpt);
-USHORT build_dhcp_option(BYTE OptionType, BYTE OptionLength, PBYTE OptionValue, PDHCP_OPT pDhcpOpt);
+pIPv4_HDR Build_IPv4Hdr(ULONG SrcIp, ULONG DstIp, USHORT ip_len, USHORT Proto);
+pUDPv4_HDR Build_UDPv4Hdr(USHORT SrcPort, USHORT DstPort, USHORT udp_len);
+USHORT Build_DHCPOpt_50_54(USHORT OptionType, ULONG RequestedIP, PDHCP_OPT DhcpOpt);
+USHORT Build_DHCPOpt_53(USHORT MsgType, PDHCP_OPT DhcpOpt);
+USHORT Build_DHCPOpt_55(vector<int> ParameterRequestList, PDHCP_OPT DhcpOpt);
+USHORT Build_DHCPOpt_81(char* FQDN, PDHCP_OPT DhcpOpt);
+USHORT Build_DHCPOpt_61(PUCHAR MacAddr, PDHCP_OPT DhcpOpt);
+USHORT Build_DHCPOpt(BYTE OptionType, BYTE OptionLength, PBYTE OptionValue, PDHCP_OPT pDhcpOpt);
 bool IsIPv4AddrPlumbebOnAdapter(int IfIndex, char* IPv4);
 DWORD ListAllAdapters();
 DWORD MyEcho(char* IpAddr);
@@ -119,7 +119,7 @@ DWORD WaitOnTimer(HANDLE hTimer, time_t time, const char* Msg);
 bool CheckValidIpAddr(string IpAddr);
 void CleanupAlternateIPv4OnInt(int IfIndex, char* IPv4);
 DWORD GetAdapterMacByIndex(int IfIndex, BYTE(&MAC)[ETHER_ADDR_LEN]);
-DWORD AllocateRoomForOpts(PDHCP_OPT*& ppDhcpOpts, int iNbrOpt);
+DWORD Alloc_DHCPOpts(PDHCP_OPT*& ppDhcpOpts, int iNbrOpt);
 
 /*
 https://tools.ietf.org/html/rfc2131#section-5
@@ -186,13 +186,13 @@ namespace DHCPRaw
 		{
 			;
 		}
-		DHCPRawLease(pDHCP_PACKET& pDhcpAck, pDHCP_PACKET& pDhcpRequest, int ClientId){ SetLease(pDhcpAck, pDhcpRequest, ClientId);}
+		DHCPRawLease(pDHCP_PACKET& pDhcpAck, pDHCP_PACKET& pDhcpRequest, int ClientId){ Set_DHCPLease(pDhcpAck, pDhcpRequest, ClientId);}
 		/////////////////////
 		/// Methods
 		/////////////////////
 		void print();
 		//
-		pDHCP_LEASE GetLease() { return m_pDhcpLease; }
+		pDHCP_LEASE Get_DHCPLease() { return m_pDhcpLease; }
 
 	private:
 		/////////////////////
@@ -201,11 +201,10 @@ namespace DHCPRaw
 		pDHCP_LEASE m_pDhcpLease = NULL;
 		char m_LocalAddrIp[INET_ADDRSTRLEN] = { 0 };
 		char m_ServerAddrIp[INET_ADDRSTRLEN] = { 0 };
-
 		/////////////////////
 		/// Methods
 		/////////////////////
-		void SetLease(pDHCP_PACKET& pDhcpAck, pDHCP_PACKET& pDhcpRequest, int ClientId);
+		void Set_DHCPLease(pDHCP_PACKET& pDhcpAck, pDHCP_PACKET& pDhcpRequest, int ClientId);
 	};
 
 	//DHCPRawMessage
@@ -224,7 +223,7 @@ namespace DHCPRaw
 		/// Methods
 		/////////////////////
 		// Create pIPV4 and UDPv4 hearder
-		DWORD SetDhcpMessage(BYTE dhcp_opcode, BYTE dhcp_flags, ULONG dhcp_gip, BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN]);
+		DWORD Set_DHCPMsg(BYTE dhcp_opcode, BYTE dhcp_flags, ULONG dhcp_gip, BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN]);
 	
 	public:
 		/////////////////////
@@ -253,11 +252,7 @@ namespace DHCPRaw
 			else
 				return NULL;
 		}
-		//PDHCP_OPT*		get_pDhcpOpts();
-		void set_pDhcpPacket(pDHCP_PACKET DhcpPacket) 
-		{
-			this->m_pDhcpPacket = DhcpPacket;
-		}
+
 	};
 
 	//DHCPRawClient 
@@ -283,25 +278,23 @@ namespace DHCPRaw
 			/// Methods
 			/////////////////////
 			void print();
-			void EntryPoint();
-			int getClientNumber() { return m_ClientNumber; }
+			void EntryPoint_DHCPClient();
+			int Get_DHCPClient_Number() { return m_ClientNumber; }
 
 		private:
 			/////////////////////
 			/// attributes
 			/////////////////////			
-			enum StateTransition { Init = 0, Selecting, Requesting, Bound, Renewing, Rebinding, Releasing };
-
 			HANDLE m_hTimer = NULL;
 
 			BYTE m_MAC[ETHER_ADDR_LEN]{ 0,0,0,0,0,0 };
 			int	m_IfIndex = 0;
 			int	m_ClientNumber = 0;
-			int	m_StateTransition = StateTransition::Init;
-			int	m_numberOfCustomOpts = 0;
+			int	m_TransitionState = TransitionState::Init;
+			int	m_NumberOfCustomOpts = 0;
 			bool m_IsReceiver = false;
 			bool m_IsOfferReceive = false;
-			bool m_gRelayMode = FALSE;
+			bool m_IsRelayMode = FALSE;
 			
 			vector<string> m_RelayAddrs;
 			vector<string> m_SrvAddrs;
@@ -330,13 +323,13 @@ namespace DHCPRaw
 				* Consume any DHCP Offer and reply accordingly by a request
 				* to the Q (do 3 restransmit)
 			*/
-			DWORD DhcpClient();
-			DWORD DhcpReceiver();
-			DWORD DhcpClientWaitOnTimer();
+			DWORD Run_DHCPClient();
+			DWORD Run_DHCPReceiver();
+			DWORD Wait_DhcpClient_OnT1T2EndOfLease();
 			//
-			DWORD SendDhcpRequest(pDHCP_PACKET DhcpPacket, pIPv4_HDR myIPv4Hdr, pUDPv4_HDR myUDPv4hdr);
-			DWORD SetDHCPRequestCompletionEvent(int bucket, pDHCP_PACKET Reply);
-			DWORD SetStateTransition(int NewState);
+			DWORD Send_Dhcp_Packet(pDHCP_PACKET DhcpPacket, pIPv4_HDR myIPv4Hdr, pUDPv4_HDR myUDPv4hdr);
+			DWORD Set_DHCPRequest_CompletionEvent(int bucket, pDHCP_PACKET Reply);
+			DWORD Set_Transition_State(int NewState);
 			DWORD build_dhpc_request(pDHCP_PACKET DhcpPacket);
 			DWORD add_dhcp_opts_to_request(pDHCP_PACKET DhcpPacket);
 
