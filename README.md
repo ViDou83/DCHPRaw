@@ -11,7 +11,7 @@ Version: 1.0
 Usage:  regular mode:   DhcpRaw -i {ifIndex} -n {NbrLeasesWanted} -a
         relay mode  :   DhcpRaw -i {ifIndex} -n {NbrLeasesWanted} -r {RelayAddr} -s {DHCPSrvAddr} -a
 
-`DchpRaw.exe -h
+DchpRaw.exe -h
         -i: Specify the ifIndex of the NIC where you want to send out DHCP msg (please run DHCPRaw.exe -d
         -n: Number of DHCP leases you want to request (One DHCPClient by lease => many threads)
         -r: RELAY MODE ONLY: Address ip to borrow as DHCP relay. Alternate IP Addresses will be plumbed on the NIC specified by -i
