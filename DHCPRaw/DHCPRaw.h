@@ -119,6 +119,7 @@ DWORD WaitOnTimer(HANDLE hTimer, time_t time, const char* Msg);
 bool CheckValidIpAddr(string IpAddr);
 void CleanupAlternateIPv4OnInt(int IfIndex, char* IPv4);
 DWORD GetAdapterMacByIndex(int IfIndex, BYTE(&MAC)[ETHER_ADDR_LEN]);
+DWORD AllocateRoomForOpts(PDHCP_OPT*& ppDhcpOpts, int iNbrOpt);
 
 /*
 https://tools.ietf.org/html/rfc2131#section-5
@@ -337,6 +338,8 @@ namespace DHCPRaw
 			DWORD SetDHCPRequestCompletionEvent(int bucket, pDHCP_PACKET Reply);
 			DWORD SetStateTransition(int NewState);
 			DWORD build_dhpc_request(pDHCP_PACKET DhcpPacket);
+			DWORD add_dhcp_opts_to_request(pDHCP_PACKET DhcpPacket);
+
 			bool AcceptOffer(pDHCP_PACKET m_pDhcpOffer);
 			//
 			DWORD ConvertStrOptToDhpOpt(vector<string> StrCustomOpt);

@@ -116,7 +116,6 @@ DHCPRawPacket::DHCPRawPacket(BYTE(&dhcp_chaddr)[ETHER_ADDR_LEN], bool isRelayOn)
 
 	SetDhcpMessage(DHCP_REQUEST, dhcp_flags, INADDR_ANY, dhcp_chaddr);
 	//IPv4 and UDPv4 Headers
-
 	m_pIPv4_HDR = BuildIPv4Hdr(INADDR_ANY, INADDR_BROADCAST, 0, IPPROTO_UDP);
 	m_pUDPv4_HDR = BuildUDPv4Hdr(UdpSrcPort, DHCP_UDP_SPORT,  0);
 }
@@ -186,7 +185,6 @@ void DHCPRawPacket::print()
 
 	if (m_pDhcpMsg != NULL)
 	{
-
 		inet_ntop(AF_INET, &(m_pDhcpMsg->dhcp_cip), dhcp_cip, INET_ADDRSTRLEN);
 		inet_ntop(AF_INET, &(m_pDhcpMsg->dhcp_yip), dhcp_yip, INET_ADDRSTRLEN);
 		inet_ntop(AF_INET, &(m_pDhcpMsg->dhcp_sip), dhcp_sip, INET_ADDRSTRLEN);
@@ -620,7 +618,7 @@ DWORD DHCPRawClient::DhcpClient()
 					Sleep(10000);
 					//Transitionning to Releasing
 					SetStateTransition(StateTransition::Releasing);
-					break;
+					continue;
 				}
 			}
 			
@@ -738,124 +736,132 @@ bool DHCPRawClient::AcceptOffer(pDHCP_PACKET m_pDhcpOffer)
 	return true;
 }
 
-/* This routine a DHCP Request... The request is build based on the current StateTransition*/
-DWORD DHCPRawClient::build_dhpc_request(pDHCP_PACKET DhcpPacket)
+
+DWORD DHCPRawClient::add_dhcp_opts_to_request(pDHCP_PACKET DhcpPacket)
 {
-	DEBUG_PRINT("-->DHCPRawClient::build_dhpc_request CLient:%d FSM:%d\n", m_ClientNumber, m_StateTransition);
-	string pchDomainName; // = NULL;
-	string pcClientFQDN;// = (char*)malloc(sizeof(char) * m_ClientNamePrefix.size() + 255);
-	USHORT iNbrOpt = 0;
-	USHORT iDhcpOptSize = 0;
+	DEBUG_PRINT("-->DHCPRawClient::add_dhcp_opts_to_request\n");
+
+	int DhcpMsgType;
+	//if Custom opts provided by cmdline
+	USHORT iNbrOpt = m_numberOfCustomOpts > 0 ? m_numberOfCustomOpts  : 0;
 	USHORT iDhcpOpt = 0;
-	int DhcpMsgType = DHCP_MSGREQUEST;
-	//TODO Let user custom this from command line with a vector<byte>
-	
-	//vector<int> rgb_ParameterRequestList =
-	if (m_ParamReqList.size() == 0)
-	{
-		m_ParamReqList = { DHCP_SUBNETMASK, DHCP_BROADCASTADDR, DHCP_ROUTER, DHCP_DOMAINNAME, DHCP_DNS };
-	}
- 
-	pDHCP_PACKET pDhcpReply = NULL;
-	PDHCP_OPT pDhcpOpt_Current = NULL;
-	pIPv4_HDR myIPv4Hdr = NULL;
+	string pchDomainName;
+	string pcClientFQDN;
+	pDHCP_PACKET pDhcpReply = m_pDhcpOffer;
 	PDHCP_OPT* ppDhcpPreviousOpt = NULL;
+	PDHCP_OPT pDhcpOpt_Current = NULL;
 
 	int PreviousOptNbr = 0;
 
+	// Default opt55 if not provided by cmdline
+	if (m_ParamReqList.size() == 0)
+		m_ParamReqList = { DHCP_SUBNETMASK, DHCP_BROADCASTADDR, DHCP_ROUTER, DHCP_DOMAINNAME, DHCP_DNS };
+
 	if (m_StateTransition == StateTransition::Init)
 	{
-		iNbrOpt = DHCP_OPT_NBR_DISCVOVER;
+		iNbrOpt += DHCP_OPT_NBR_DISCVOVER;
 		DhcpMsgType = DHCP_MSGDISCOVER;
-	}
-	else if (	m_StateTransition == StateTransition::Requesting )
-	{
-		pDhcpReply = m_pDhcpOffer;
-		iDhcpOptSize = DhcpPacket->m_iSizeOpt;
-		PreviousOptNbr = DhcpPacket->m_iNbrOpt;
-		iNbrOpt = PreviousOptNbr;
-		if (pDhcpReply->m_pDhcpMsg->dhcp_sip != 0)
-			iNbrOpt++;
 
-		iNbrOpt += 2;
-		DhcpPacket->m_iRetry = 0;
+		DEBUG_PRINT("DHCPRawClient::add_dhcp_opts_to_request DISCOVER OptNbr:%d\n", iNbrOpt);
 
-		ppDhcpPreviousOpt = DhcpPacket->m_ppDhcpOpt;
-		DhcpPacket->m_ppDhcpOpt = NULL;
-		DhcpPacket->m_iNbrOpt = 0;
+		//Allocate room for DHCP opts
+		AllocateRoomForOpts(DhcpPacket->m_ppDhcpOpt, iNbrOpt);
+
+		DhcpPacket->m_iSizeOpt += build_option53(DHCP_MSGDISCOVER, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
+		iDhcpOpt++;
+
+		DhcpPacket->m_iSizeOpt += build_dhcp_option(DHCP_HOSTNAME, m_ClientNamePrefix.size(), (PBYTE)m_ClientNamePrefix.c_str(), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
+		iDhcpOpt++;
+
+		DhcpPacket->m_iSizeOpt += build_option_61(DhcpPacket->m_pDhcpMsg->dhcp_chaddr, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
+		iDhcpOpt++;
+
+		DhcpPacket->m_iSizeOpt += build_option_55(m_ParamReqList, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
+		iDhcpOpt++;
+
+		if (m_numberOfCustomOpts > 0)
+		{
+			DEBUG_PRINT("DHCPRawClient::add_dhcp_opts_to_request: Custom option(s) detected\n");
+			for (auto it = m_pCustomDhcpOpts.begin(); it != m_pCustomDhcpOpts.end(); it++)
+			{
+				pDhcpOpt_Current = *it;
+
+				DhcpPacket->m_ppDhcpOpt[iDhcpOpt]->OptionType = pDhcpOpt_Current->OptionType;
+				DhcpPacket->m_ppDhcpOpt[iDhcpOpt]->OptionLength = pDhcpOpt_Current->OptionLength;
+
+				DhcpPacket->m_ppDhcpOpt[iDhcpOpt]->OptionValue = (PBYTE)malloc(sizeof(BYTE) * pDhcpOpt_Current->OptionLength);
+
+				memcpy(DhcpPacket->m_ppDhcpOpt[iDhcpOpt]->OptionValue, pDhcpOpt_Current->OptionValue, sizeof(BYTE) * pDhcpOpt_Current->OptionLength);
+				DhcpPacket->m_iSizeOpt += pDhcpOpt_Current->OptionLength + 2;
+				iDhcpOpt++;
+			}
+		}
 	}
 	else if (m_StateTransition == StateTransition::Releasing)
 	{
-		pDhcpReply = m_pDhcpOffer;
-		iNbrOpt = 3; // MsgType 53 + SrvID 54 + ClientID 61 + END 255 (End is not count as opt is the computation)... just added before padding
-		DhcpPacket->m_pDhcpMsg->dhcp_cip = pDhcpReply->m_pDhcpMsg->dhcp_yip;
-	}
-	else
-	{
-		pDhcpReply = this->m_pDhcpAck;
-		iNbrOpt = DhcpPacket->m_iNbrOpt;
-		if (pDhcpReply->m_pDhcpMsg->dhcp_sip != 0)
-			iNbrOpt++;
 
-		iNbrOpt += 2;
-	}
+		DhcpMsgType = DHCP_MSGRELEASE;
+		iNbrOpt += DHCP_OPT_NBR_DISCVOVER;
+		; // MsgType 53 + SrvID 54 + ClientID 61 + END 255 (End is not count as opt is the computation)... just added before padding
+		DhcpPacket->m_iSizeOpt = 0;
 
-	//Something wrong here....
-	if (DhcpPacket == NULL)
-		return EXIT_FAILURE;
+		DEBUG_PRINT("--> DHCPRawClient::add_dhcp_opts_to_request RELEASE OptNbr:%d\n", iNbrOpt);
 
-	//Custom DHCP opts
-	if (m_numberOfCustomOpts > 0)
-		iNbrOpt += m_numberOfCustomOpts;
-				
-	//Allocate space  DhcpOptions + 1 for the END OPT
-	DhcpPacket->m_ppDhcpOpt = (PDHCP_OPT*)malloc(sizeof(PDHCP_OPT) * iNbrOpt);
-	for (int i = 0; i < iNbrOpt; i++)
-		DhcpPacket->m_ppDhcpOpt[i] = (PDHCP_OPT)malloc(sizeof(DHCP_OPT));
+		//Allocate room for DHCP opts
+		AllocateRoomForOpts(DhcpPacket->m_ppDhcpOpt, iNbrOpt);
 
-	if (m_StateTransition == StateTransition::Init)
-	{
-		DEBUG_PRINT("--> DHCPRawClient::build_dhpc_request DISCOVER OptNbr:%d\n", iNbrOpt);
-
-		iDhcpOptSize += build_option53(DHCP_MSGDISCOVER, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
+		DhcpPacket->m_iSizeOpt += build_option53(DhcpMsgType, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
 		iDhcpOpt++;
 
-		iDhcpOptSize += build_dhcp_option(DHCP_HOSTNAME, m_ClientNamePrefix.size(), (PBYTE)m_ClientNamePrefix.c_str(), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
+		DhcpPacket->m_iSizeOpt += build_dhcp_option(DHCP_HOSTNAME, m_ClientNamePrefix.size(), (PBYTE)m_ClientNamePrefix.c_str(), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
 		iDhcpOpt++;
 
-		iDhcpOptSize += build_option_61(DhcpPacket->m_pDhcpMsg->dhcp_chaddr, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
-		iDhcpOpt++;
-		
-		iDhcpOptSize += build_option_55(m_ParamReqList, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
-		iDhcpOpt++;
-	}
-	else if (this->m_StateTransition == StateTransition::Releasing)
-	{
-		DEBUG_PRINT("--> DHCPRawClient::build_dhpc_request RELEASE OptNbr:%d\n", iNbrOpt);
-
-		iDhcpOptSize += build_option53(DHCP_MSGRELEASE, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
+		DhcpPacket->m_iSizeOpt += build_option50_54(DHCP_SERVIDENT, htonl(pDhcpReply->m_pDhcpMsg->dhcp_sip), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
 		iDhcpOpt++;
 
-		iDhcpOptSize += build_dhcp_option(DHCP_HOSTNAME, m_ClientNamePrefix.size(), (PBYTE)m_ClientNamePrefix.c_str(), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
-		iDhcpOpt++;
-
-		iDhcpOptSize += build_option50_54(DHCP_SERVIDENT, htonl(pDhcpReply->m_pDhcpMsg->dhcp_sip), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
-		iDhcpOpt++;
-
-		iDhcpOptSize += build_option_61(DhcpPacket->m_pDhcpMsg->dhcp_chaddr, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
+		DhcpPacket->m_iSizeOpt += build_option_61(DhcpPacket->m_pDhcpMsg->dhcp_chaddr, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
 		iDhcpOpt++;
 	}
 	else
 	{
-		DEBUG_PRINT("--> DHCPRawClient::build_dhpc_request REQUEST OptNbr:%d\n", iNbrOpt);
-
 		//Something wrong here.... 
 		if (pDhcpReply == NULL || DhcpPacket == NULL)
 			return EXIT_FAILURE;
+
+		DhcpMsgType = DHCP_MSGREQUEST;
+
+		//Requesting Retry 
+		if (m_StateTransition == StateTransition::Requesting)
+		{
+			PreviousOptNbr = DhcpPacket->m_iNbrOpt;
+			iNbrOpt = PreviousOptNbr;
+
+			pDhcpReply = m_pDhcpOffer;
+			if (pDhcpReply->m_pDhcpMsg->dhcp_sip != 0)
+				iNbrOpt++;
+
+			iNbrOpt += 2;
+			DhcpPacket->m_iRetry = 0;
+
+			ppDhcpPreviousOpt = DhcpPacket->m_ppDhcpOpt;
+			DhcpPacket->m_ppDhcpOpt = NULL;
+			DhcpPacket->m_iNbrOpt = 0;
+		}
+		else 
+		{
+			//Renew or Rebinding
+			pDhcpReply = this->m_pDhcpAck;
+			iNbrOpt = DhcpPacket->m_iNbrOpt;
+			if (pDhcpReply->m_pDhcpMsg->dhcp_sip != 0)
+				iNbrOpt++;
+
+			iNbrOpt += 2;
+		}
 		
-		memcpy(DhcpPacket->m_pDhcpMsg, pDhcpReply->m_pDhcpMsg, sizeof(DHCPv4_HDR));
-		DhcpPacket->m_pDhcpMsg->dhcp_opcode = DHCP_REQUEST;
-		DhcpPacket->m_pDhcpMsg->dhcp_yip = 0;
+		DEBUG_PRINT("DHCPRawClient::add_dhcp_opts_to_request REQUEST OptNbr:%d\n", iNbrOpt);
+
+		//Allocate room for DHCP opts
+		AllocateRoomForOpts(DhcpPacket->m_ppDhcpOpt, iNbrOpt);
 
 		for (int i = 0; i < pDhcpReply->m_iNbrOpt; i++)
 		{
@@ -863,20 +869,20 @@ DWORD DHCPRawClient::build_dhpc_request(pDHCP_PACKET DhcpPacket)
 			switch (pDhcpReply->m_ppDhcpOpt[i]->OptionType)
 			{
 			case DHCP_DOMAINNAME:
-					pchDomainName = string((const char*)pDhcpReply->m_ppDhcpOpt[i]->OptionValue, pDhcpReply->m_ppDhcpOpt[i]->OptionLength);
-					break;
+				pchDomainName = string((const char*)pDhcpReply->m_ppDhcpOpt[i]->OptionValue, pDhcpReply->m_ppDhcpOpt[i]->OptionLength);
+				break;
 			}
 		}
-		DEBUG_PRINT("--> DHCPRawClient::build_dhpc_request Request Copying previous OptNbr:%d\n", PreviousOptNbr);
+		DEBUG_PRINT("DHCPRawClient::add_dhcp_opts_to_request Request Copying previous OptNbr:%d\n", PreviousOptNbr);
 		for (int i = 0; i < PreviousOptNbr; i++)
 		{
-			DEBUG_PRINT("--> DHCPRawClient::build_dhpc_request Request Copying previous OPTs:%d\n", ppDhcpPreviousOpt[i]);
+			DEBUG_PRINT("DHCPRawClient::add_dhcp_opts_to_request Request Copying previous OPTs:%d\n", ppDhcpPreviousOpt[i]->OptionType);
 
 			DhcpPacket->m_ppDhcpOpt[i] = ppDhcpPreviousOpt[i];
 			switch (ppDhcpPreviousOpt[i]->OptionType)
 			{
 			case DHCP_MESSAGETYPE:
-				iDhcpOptSize += build_option53(DhcpMsgType, DhcpPacket->m_ppDhcpOpt[i]);
+				DhcpPacket->m_iSizeOpt += build_option53(DhcpMsgType, DhcpPacket->m_ppDhcpOpt[i]);
 				break;
 			}
 			iDhcpOpt++;
@@ -884,46 +890,62 @@ DWORD DHCPRawClient::build_dhpc_request(pDHCP_PACKET DhcpPacket)
 
 		pcClientFQDN = m_ClientNamePrefix + "." + pchDomainName;
 
-		iDhcpOptSize += build_option50_54(DHCP_REQUESTEDIP, htonl(pDhcpReply->m_pDhcpMsg->dhcp_yip), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
+		DhcpPacket->m_iSizeOpt += build_option50_54(DHCP_REQUESTEDIP, htonl(pDhcpReply->m_pDhcpMsg->dhcp_yip), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
 		iDhcpOpt++;
 
 		if (pchDomainName.size() > 0)
 		{
-			iDhcpOptSize += build_option_81((char*)pcClientFQDN.c_str(), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
+			DhcpPacket->m_iSizeOpt += build_option_81((char*)pcClientFQDN.c_str(), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
 			iDhcpOpt++;
 		}
 		// adding srv identity
 		if (pDhcpReply->m_pDhcpMsg->dhcp_sip > 0)
 		{
-			iDhcpOptSize += build_option50_54(DHCP_SERVIDENT, htonl(pDhcpReply->m_pDhcpMsg->dhcp_sip), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
+			DhcpPacket->m_iSizeOpt += build_option50_54(DHCP_SERVIDENT, htonl(pDhcpReply->m_pDhcpMsg->dhcp_sip), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
 			iDhcpOpt++;
 		}
 	}
 
-	if (m_numberOfCustomOpts > 0)
+	DhcpPacket->m_iNbrOpt = iDhcpOpt;
+
+	DEBUG_PRINT("<--DHCPRawClient::add_dhcp_opts_to_request\n");
+}
+
+/* This routine a DHCP Request... The request is build based on the current StateTransition*/
+DWORD DHCPRawClient::build_dhpc_request(pDHCP_PACKET DhcpPacket)
+{
+	DEBUG_PRINT("-->DHCPRawClient::build_dhpc_request CLient:%d FSM:%d\n", m_ClientNumber, m_StateTransition);
+
+	//Something wrong here.... 
+	if ( DhcpPacket == NULL )
+		return EXIT_FAILURE;
+
+	pDHCP_PACKET pDhcpReply = m_pDhcpOffer;
+	
+	if(	m_StateTransition == StateTransition::Releasing)
 	{
-		DEBUG_PRINT("Custom option(s) detected\n");
-		for (auto it = m_pCustomDhcpOpts.begin(); it != m_pCustomDhcpOpts.end(); it++)
-		{
-			pDhcpOpt_Current = *it;
+		if (m_pDhcpOffer == NULL)
+			return EXIT_FAILURE;
 
-			DhcpPacket->m_ppDhcpOpt[iDhcpOpt]->OptionType = pDhcpOpt_Current->OptionType;
-			DhcpPacket->m_ppDhcpOpt[iDhcpOpt]->OptionLength = pDhcpOpt_Current->OptionLength;
-
-			DhcpPacket->m_ppDhcpOpt[iDhcpOpt]->OptionValue = (PBYTE)malloc(sizeof(BYTE) * pDhcpOpt_Current->OptionLength);
-
-			memcpy(DhcpPacket->m_ppDhcpOpt[iDhcpOpt]->OptionValue, pDhcpOpt_Current->OptionValue, sizeof(BYTE) * pDhcpOpt_Current->OptionLength);
-			iDhcpOptSize += pDhcpOpt_Current->OptionLength + 2;
-			iDhcpOpt++;
-		}
+		DhcpPacket->m_pDhcpMsg->dhcp_cip = pDhcpReply->m_pDhcpMsg->dhcp_yip;
+	}
+	else if (m_StateTransition != StateTransition::Init)
+	{
+		if (m_pDhcpOffer == NULL )
+			return EXIT_FAILURE;
+		
+		//Requesting or renew or rebind
+		memcpy(DhcpPacket->m_pDhcpMsg, pDhcpReply->m_pDhcpMsg, sizeof(DHCPv4_HDR));
+		DhcpPacket->m_pDhcpMsg->dhcp_opcode = DHCP_REQUEST;
+		DhcpPacket->m_pDhcpMsg->dhcp_yip = 0;
 	}
 
 	DhcpPacket->m_pDhcpMsg->dhcp_sip = 0;
-	//Relay mode 
-	DhcpPacket->m_pDhcpMsg->dhcp_gip = 0;//m_gRelayMode == TRUE ? inet_addr(m_RelayAddr.c_str()) : 0;
-	DhcpPacket->m_iSizeOpt = iDhcpOptSize;
-	DhcpPacket->m_iNbrOpt = iDhcpOpt;
+	DhcpPacket->m_pDhcpMsg->dhcp_gip = 0;
 	DhcpPacket->m_ltime = 0;
+
+	//Allocate room for DhcpOptions + 1 for the END OPT
+	add_dhcp_opts_to_request(DhcpPacket);
 
 cleanup:
 	DEBUG_PRINT("<-- DHCPRawClient::build_dhpc_request CLient:%d\n", m_ClientNumber);
@@ -1105,12 +1127,13 @@ DWORD DHCPRawClient::DhcpReceiver()
 					nbrOpt++;
 				}
 				pDhcpReply->m_iSizeOpt = cpt - DHCPv4_H;
-				pDhcpReply->m_ppDhcpOpt = (PDHCP_OPT*)malloc(sizeof(PDHCP_OPT) * nbrOpt);
+				
+				//Allocate room for DHCP Opts
+				AllocateRoomForOpts(pDhcpReply->m_ppDhcpOpt, nbrOpt);
 
 				cpt = DHCPv4_H;
 				for (int i = 0; i < nbrOpt; i++)
 				{
-					pDhcpReply->m_ppDhcpOpt[i] = (PDHCP_OPT)malloc(sizeof(DHCP_OPT));
 					pDhcpReply->m_ppDhcpOpt[i]->OptionType = RecvBuff[cpt];
 					pDhcpReply->m_ppDhcpOpt[i]->OptionLength = RecvBuff[cpt + 1];
 					pDhcpReply->m_ppDhcpOpt[i]->OptionValue = (PBYTE)malloc((sizeof(BYTE) * pDhcpReply->m_ppDhcpOpt[i]->OptionLength));

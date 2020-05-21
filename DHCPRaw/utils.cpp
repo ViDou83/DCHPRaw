@@ -149,6 +149,20 @@ USHORT build_option_81(char* FQDN, PDHCP_OPT DhcpOpt)
 	return DhcpOpt->OptionLength + 2;
 }
 
+DWORD AllocateRoomForOpts(PDHCP_OPT*& ppDhcpOpts, int iNbrOpt)
+{
+	DEBUG_PRINT("-->AllocateRoomForOpts:\n");
+
+	//FREE_IF_NOT_NULL(ppDhcpOpts);
+
+	ppDhcpOpts = (PDHCP_OPT*)malloc(sizeof(PDHCP_OPT) * iNbrOpt);
+	for (int i = 0; i < iNbrOpt; i++)
+		ppDhcpOpts[i] = (PDHCP_OPT)malloc(sizeof(DHCP_OPT));
+
+	DEBUG_PRINT("<--AllocateRoomForOpts:\n");
+
+	return EXIT_SUCCESS;
+}
 
 void DumpDhcpMsg(pDHCPv4_HDR DhcpPacket)
 {

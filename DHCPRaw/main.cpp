@@ -154,8 +154,6 @@ int main(int argc, char* argv[])
 		}
 	}
 
-
-
 	//Exit if no TCPIP adapter has been provided
 	if (!IfIndex) 
 	{
