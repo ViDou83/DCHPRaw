@@ -8,7 +8,10 @@ This program can be only be executed on Windows Server SKU as RAW socket support
 
 Version: 1.0
 
-Usage:  regular mode:   DhcpRaw -i {ifIndex} -n {NbrLeasesWanted} -a
+Usage:  
+        
+        regular mode:   DhcpRaw -i {ifIndex} -n {NbrLeasesWanted} -a
+
         relay mode  :   DhcpRaw -i {ifIndex} -n {NbrLeasesWanted} -r {RelayAddr} -s {DHCPSrvAddr} -a
 
 `
