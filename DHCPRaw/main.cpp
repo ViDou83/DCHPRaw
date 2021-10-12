@@ -4,7 +4,7 @@
 #include <thread>
 
 #define PROGRAM_MAJOR_VERSION 1
-#define PROGRAM_MINOR_VERSION 0
+#define PROGRAM_MINOR_VERSION 1
 
 #define NBR_WORKER_THREADS 2
 #define NBR_DHCP_SENDER 1
