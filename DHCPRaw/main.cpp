@@ -216,6 +216,12 @@ int main(int argc, char* argv[])
 		}
 	}
 
+	if (!bIsRealyOn && IsMultihomed())
+	{
+		cout << "Error: Please do not run DHCPRaw in regular mode on a multi-homed machine. Only one NetAdapter must be active!" << endl;
+		return EXIT_FAILURE;
+	}
+
 	/*	Initialize THREADS :
 		1) One for dealing with receive DHCP packets
 		2) Multiple sender aka DHCP CLients

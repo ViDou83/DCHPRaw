@@ -308,6 +308,54 @@ bool IsIPv4AddrPlumbebOnAdapter(int IfIndex, char* IPv4) {
 	return false;
 }
 
+bool IsMultihomed() {
+	bool IsMultiHomed = false;
+
+	PIP_ADAPTER_INFO pAdapterInfo;
+	PIP_ADAPTER_INFO pAdapter = NULL;
+	DWORD dwRetVal = 0;
+
+	ULONG ulOutBufLen = sizeof(IP_ADAPTER_INFO);
+	pAdapterInfo = (IP_ADAPTER_INFO*)MALLOC(sizeof(IP_ADAPTER_INFO));
+	if (pAdapterInfo == NULL)
+	{
+		printf("Error allocating memory needed to call GetAdaptersinfo\n");
+		return EXIT_FAILURE;
+	}
+
+	// Make an initial call to GetAdaptersInfo to get
+	// the necessary size into the ulOutBufLen variable
+	if (GetAdaptersInfo(pAdapterInfo, &ulOutBufLen) == ERROR_BUFFER_OVERFLOW)
+	{
+		FREE(pAdapterInfo);
+		pAdapterInfo = (IP_ADAPTER_INFO*)MALLOC(ulOutBufLen);
+		if (pAdapterInfo == NULL) {
+			printf("Error allocating memory needed to call GetAdaptersinfo\n");
+			return EXIT_FAILURE;
+		}
+	}
+
+	if ((dwRetVal = GetAdaptersInfo(pAdapterInfo, &ulOutBufLen)) == NO_ERROR)
+	{
+		pAdapter = pAdapterInfo;
+		while (pAdapter) {
+			if (pAdapter->Next != NULL)
+			{
+				IsMultiHomed = true;
+				break;
+			}
+			pAdapter = pAdapter->Next;
+		}
+	}
+	else
+	{
+		printf("GetAdaptersInfo failed with error: %d\n", dwRetVal);
+	}
+	if (pAdapterInfo)
+		FREE(pAdapterInfo);
+
+	return IsMultiHomed;
+}
 
 void CleanupAlternateIPv4OnInt(int IfIndex, char* IPv4) {
 	DEBUG_PRINT("--> CleanupAlternateIPv4OnInt()\n");

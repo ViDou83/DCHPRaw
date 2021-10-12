@@ -21,6 +21,7 @@
 #include <VersionHelpers.h>
 #include <stdarg.h>
 #include <ntsecapi.h>
+#include <mstcpip.h>
 
 #include <vector>
 #include <unordered_map>
@@ -112,6 +113,7 @@ USHORT Build_DHCPOpt_81(char* FQDN, PDHCP_OPT DhcpOpt);
 USHORT Build_DHCPOpt_61(PUCHAR MacAddr, PDHCP_OPT DhcpOpt);
 USHORT Build_DHCPOpt(BYTE OptionType, BYTE OptionLength, PBYTE OptionValue, PDHCP_OPT pDhcpOpt);
 bool IsIPv4AddrPlumbebOnAdapter(int IfIndex, char* IPv4);
+bool IsMultihomed();
 DWORD ListAllAdapters();
 DWORD MyEcho(char* IpAddr);
 LARGE_INTEGER UnixTimeToFileTime(time_t t);

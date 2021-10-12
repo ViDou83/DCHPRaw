@@ -1033,6 +1033,8 @@ DWORD DHCPRawClient::Run_DHCPReceiver()
 	SOCKADDR_STORAGE rcvfrom;
 	WSADATA wsaData = { 0 };
 	fd_set readfs;
+	RCVALL_IF RcvAllIf;
+	DWORD     dwOutBufSize = 0;
 
 	char* RecvBuff = (char*)(malloc(sizeof(char) * DHCP_MAX_PACKET_SIZE));
 
@@ -1067,7 +1069,6 @@ DWORD DHCPRawClient::Run_DHCPReceiver()
 		goto cleanup;
 	}
 
-	//----------------------
 	// Bind the socket.
 	iResult = bind(RcvSocket, (SOCKADDR*)&rcvfrom, sizeof(rcvfrom));
 	if (iResult == SOCKET_ERROR)
@@ -1258,7 +1259,6 @@ DWORD DHCPRawClient::Send_Dhcp_Packet(pDHCP_PACKET DhcpPacket, pIPv4_HDR myIPv4H
 
 		for (int j = 0; j < m_SrvAddrs.size(); j++)
 		{
-
 			if (m_TransitionState == TransitionState::Releasing)
 			{
 				myIPv4Hdr->ip_srcaddr = DhcpPacket->m_pDhcpMsg->dhcp_cip;
