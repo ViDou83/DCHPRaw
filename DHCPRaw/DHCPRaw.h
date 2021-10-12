@@ -47,7 +47,6 @@
 #define DHCP_RETRANSMIT_TIMEOUT 5000
 #define DHCP_RETRANSMIT_COUNT 4
 
-
 #define DHCP_OPT_NBR_DISCVOVER 4
 
 #define DHCP_OPT_NBR_RELEASE 3
@@ -63,6 +62,7 @@ extern HANDLE g_hSocketWaitEvent;
 extern CRITICAL_SECTION g_CS[DHCP_REPLY];
 extern bool g_DhcpReceiverAlone;
 extern bool g_DhcpAutoRelease;
+extern bool g_NoDhcpOptions;
 
 typedef struct _DHCP_PACKET {
 	pDHCPv4_HDR m_pDhcpMsg;

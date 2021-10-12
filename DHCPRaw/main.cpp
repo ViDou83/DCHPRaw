@@ -17,6 +17,7 @@ HANDLE g_hDiscoverReadyWaitEvent;
 bool g_DhcpReceiverAlone = false;
 bool g_pDhcpCustomOpt = false;
 bool g_DhcpAutoRelease = false;
+bool g_NoDhcpOptions = false;
 
 using namespace std;
 using namespace DHCPRaw;
@@ -39,6 +40,7 @@ void Help()
 	cout << "\t-a: Automatically send DHCP release for granted lease(s)" << endl;
 	cout << "\t-opt: Specify custom opt in Hex format seperate by ,;:/" << endl;
 	cout << "\t\tEx for OPT 82 with SubnetSelection 192.168.100.0/24:\n\t\t\t-opt 0x52,0x6,0x5,0x4,0xc0,0xa8,0x64,0x0" << endl;
+	cout << "\t-noopt: Sending DHCP message w/o any option expect option 53 and 255" << endl;
 	cout << "\t-paramreqlist: Specify paramaters request list (DHCP opt 55) in Hex format separate by ,;:/." << endl;
 	cout << "\t\tEx SubnetMask,DomainName,Router,NetBIOSopts,DomainNameServer::\n\t\t\t-paramreqlist 0x1,0xf,0x3,0x2c,0x2e,0x2f,0x6" << endl;
 }
@@ -129,6 +131,10 @@ int main(int argc, char* argv[])
 				pch = strtok(NULL, ",;:/");
 			}
 		}
+		else if (strcmp(argv[i], "-noopt") == 0) //DHCP custom opts
+		{
+			g_NoDhcpOptions = true;
+		}
 		else if (strcmp(argv[i], "-paramreqlist") == 0) //Customer Parameter Request List
 		{
 			char* line = argv[i + 1];
@@ -189,10 +195,16 @@ int main(int argc, char* argv[])
 
 			if (!IsIPv4AddrPlumbebOnAdapter(IfIndex, (char*)RelayAddrs[i].c_str()))
 			{
-				if (dwRetVal = AddIPAddress(inet_addr(RelayAddrs[i].c_str()), inet_addr("255.255.255.0"), IfIndex, &NTEContext, &NTEInstance) == NO_ERROR)
+				if (dwRetVal = AddIPAddress(inet_addr(RelayAddrs[i].c_str()),
+					inet_addr("255.255.255.0"), IfIndex, &NTEContext, &NTEInstance) == NO_ERROR)
+				{
 					printf("main(): Relay IPv4 address %s was successfully added.\n", RelayAddrs[i].c_str());
+				}
 				else
+				{
 					printf("main(): IPv4 address %s failed to be added with error: %d\n", RelayAddrs[i].c_str(), dwRetVal);
+					return EXIT_FAILURE;
+				}
 
 				//Waiting till the IP is bound
 				do
@@ -263,9 +275,13 @@ int main(int argc, char* argv[])
 		for (int i = 0; i < NbrLeases; i++)
 		{
 			if (bIsRealyOn)
+			{
 				DHCPClients[i] = new DHCPRawClient(i, IfIndex, bIsRealyOn, sClientFQDN, StrCustomOpt, ParamReqList, RelayAddrs, SrvAddrs);
+			}
 			else
+			{
 				DHCPClients[i] = new DHCPRawClient(i, IfIndex, bIsRealyOn, sClientFQDN, StrCustomOpt, ParamReqList);
+			}
 			
 			DHCPClientsThreads.push_back(thread(&DHCPRawClient::EntryPoint_DHCPClient, DHCPClients[i]));
 			Sleep(50); // Let wait a bit before each Thread

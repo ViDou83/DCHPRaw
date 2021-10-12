@@ -777,14 +777,17 @@ DWORD DHCPRawClient::add_dhcp_opts_to_request(pDHCP_PACKET DhcpPacket)
 		DhcpPacket->m_iSizeOpt += Build_DHCPOpt_53(DHCP_MSGDISCOVER, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
 		iDhcpOpt++;
 
-		DhcpPacket->m_iSizeOpt += Build_DHCPOpt(DHCP_HOSTNAME, m_ClientNamePrefix.size(), (PBYTE)m_ClientNamePrefix.c_str(), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
-		iDhcpOpt++;
+		if (!g_NoDhcpOptions)
+		{
+			DhcpPacket->m_iSizeOpt += Build_DHCPOpt(DHCP_HOSTNAME, m_ClientNamePrefix.size(), (PBYTE)m_ClientNamePrefix.c_str(), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
+			iDhcpOpt++;
 
-		DhcpPacket->m_iSizeOpt += Build_DHCPOpt_61(DhcpPacket->m_pDhcpMsg->dhcp_chaddr, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
-		iDhcpOpt++;
+			DhcpPacket->m_iSizeOpt += Build_DHCPOpt_61(DhcpPacket->m_pDhcpMsg->dhcp_chaddr, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
+			iDhcpOpt++;
 
-		DhcpPacket->m_iSizeOpt += Build_DHCPOpt_55(m_ParamReqList, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
-		iDhcpOpt++;
+			DhcpPacket->m_iSizeOpt += Build_DHCPOpt_55(m_ParamReqList, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
+			iDhcpOpt++;
+		}
 
 		if (m_NumberOfCustomOpts > 0)
 		{
@@ -820,14 +823,17 @@ DWORD DHCPRawClient::add_dhcp_opts_to_request(pDHCP_PACKET DhcpPacket)
 		DhcpPacket->m_iSizeOpt += Build_DHCPOpt_53(DhcpMsgType, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
 		iDhcpOpt++;
 
-		DhcpPacket->m_iSizeOpt += Build_DHCPOpt(DHCP_HOSTNAME, m_ClientNamePrefix.size(), (PBYTE)m_ClientNamePrefix.c_str(), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
-		iDhcpOpt++;
+		if (!g_NoDhcpOptions)
+		{
+			DhcpPacket->m_iSizeOpt += Build_DHCPOpt(DHCP_HOSTNAME, m_ClientNamePrefix.size(), (PBYTE)m_ClientNamePrefix.c_str(), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
+			iDhcpOpt++;
 
-		DhcpPacket->m_iSizeOpt += Build_DHCPOpt_50_54(DHCP_SERVIDENT, htonl(pDhcpReply->m_pDhcpMsg->dhcp_sip), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
-		iDhcpOpt++;
+			DhcpPacket->m_iSizeOpt += Build_DHCPOpt_50_54(DHCP_SERVIDENT, htonl(pDhcpReply->m_pDhcpMsg->dhcp_sip), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
+			iDhcpOpt++;
 
-		DhcpPacket->m_iSizeOpt += Build_DHCPOpt_61(DhcpPacket->m_pDhcpMsg->dhcp_chaddr, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
-		iDhcpOpt++;
+			DhcpPacket->m_iSizeOpt += Build_DHCPOpt_61(DhcpPacket->m_pDhcpMsg->dhcp_chaddr, DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
+			iDhcpOpt++;
+		}
 	}
 	else
 	{
@@ -900,7 +906,7 @@ DWORD DHCPRawClient::add_dhcp_opts_to_request(pDHCP_PACKET DhcpPacket)
 		DhcpPacket->m_iSizeOpt += Build_DHCPOpt_50_54(DHCP_REQUESTEDIP, htonl(pDhcpReply->m_pDhcpMsg->dhcp_yip), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
 		iDhcpOpt++;
 
-		if (pchDomainName.size() > 0)
+		if (pchDomainName.size() > 0 && !g_NoDhcpOptions)
 		{
 			DhcpPacket->m_iSizeOpt += Build_DHCPOpt_81((char*)pcClientFQDN.c_str(), DhcpPacket->m_ppDhcpOpt[iDhcpOpt]);
 			iDhcpOpt++;
@@ -1237,6 +1243,10 @@ DWORD DHCPRawClient::Send_Dhcp_Packet(pDHCP_PACKET DhcpPacket, pIPv4_HDR myIPv4H
 			{
 				printf("SendDhcpRequest() : setsockopt call failed with error %d\n", WSAGetLastError());
 				goto cleanup;
+			}
+			else
+			{
+				DEBUG_PRINT("SendDhcpRequest() : setsockopt() SO_BROADCAST set\n");
 			}
 		}
 	}
